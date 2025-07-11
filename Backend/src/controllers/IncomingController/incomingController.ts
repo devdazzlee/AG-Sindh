@@ -1,0 +1,160 @@
+import { Request, Response, NextFunction } from 'express';
+import { IncomingService } from '../../services/IncomingService/incomingService';
+import { incomingCreateSchema, incomingUpdateSchema, incomingStatusSchema } from '../../validation/IncomingValidation/incomingValidation';
+import multer, { StorageEngine } from 'multer';
+import path from 'path';
+import cloudinary from '../../lib/cloudinary';
+import fs from 'fs';
+import { AuthenticatedRequest } from '../../middlewares/auth';
+
+// Extend Express Request type to include file
+interface MulterRequest extends AuthenticatedRequest {
+  file?: Express.Multer.File;
+}
+
+// Role-based authorization middleware
+const requireSuperAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  console.log('Authorization check:', {
+    hasUser: !!req.user,
+    userRole: req.user?.role,
+    expectedRole: 'super_admin',
+    isMatch: req.user?.role === 'super_admin'
+  });
+  
+  if (!req.user || req.user.role !== 'super_admin') {
+    return res.status(403).json({ error: 'Access denied. Super admin privileges required.' });
+  }
+  next();
+};
+
+// Multer config for image upload
+const storage: StorageEngine = multer.diskStorage({
+  destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
+    cb(null, path.join(__dirname, '../../../uploads/incoming'));
+  },
+  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  },
+});
+export const upload = multer({ storage });
+
+export class IncomingController {
+  static async create(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const mReq = req as MulterRequest;
+      const data = { ...req.body };
+      
+      // Only update image if a new file is uploaded
+      if (mReq.file) {
+        // Upload to Cloudinary
+        const result = await cloudinary.uploader.upload(mReq.file.path, {
+          folder: 'incoming_letters',
+        });
+        data.image = result.secure_url;
+        // Delete local file
+        fs.unlinkSync(mReq.file.path);
+      }
+      // If no new file, don't include image in the update data (preserve existing)
+      
+      const parsed = incomingCreateSchema.safeParse(data);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors });
+      }
+      
+      // Pass the creator's user ID to exclude them from notifications
+      const creatorUserId = req.user?.id;
+      const incoming = await IncomingService.createIncoming(parsed.data, creatorUserId);
+      res.status(201).json({ incoming });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getAll(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 30;
+      const offset = (page - 1) * limit;
+      
+      const result = await IncomingService.getAllIncoming(limit, offset);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getById(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const record = await IncomingService.getIncomingById(id);
+      if (!record) return res.status(404).json({ error: 'Not found' });
+      res.json({ record });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async update(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const mReq = req as MulterRequest;
+      const data = { ...req.body };
+      
+      // Only update image if a new file is uploaded
+      if (mReq.file) {
+        // Upload to Cloudinary
+        const result = await cloudinary.uploader.upload(mReq.file.path, {
+          folder: 'incoming_letters',
+        });
+        data.image = result.secure_url;
+        // Delete local file
+        fs.unlinkSync(mReq.file.path);
+      }
+      // If no new file, don't include image in the update data (preserve existing)
+      
+      const parsed = incomingUpdateSchema.safeParse(data);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors });
+      }
+      const { id } = req.params;
+      const updated = await IncomingService.updateIncoming(id, parsed.data);
+      res.json({ updated });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async delete(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      
+      try {
+        await IncomingService.deleteIncoming(id);
+        res.status(204).send();
+      } catch (error: any) {
+        if (error.message === 'Record not found') {
+          return res.status(404).json({ error: 'Record not found' });
+        }
+        throw error;
+      }
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async updateStatus(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const parsed = incomingStatusSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors });
+      }
+      const updated = await IncomingService.updateStatus(id, parsed.data.status);
+      res.json({ updated });
+    } catch (err) {
+      next(err);
+    }
+  }
+}
+
+// Export the authorization middleware
+export { requireSuperAdmin }; 

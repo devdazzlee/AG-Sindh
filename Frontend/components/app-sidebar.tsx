@@ -24,6 +24,7 @@ interface AppSidebarProps {
   userRole: "super_admin" | "rd_department" | "other_department"
   isCollapsed: boolean
   onToggle: () => void
+  unreadNotifications?: number
 }
 
 const superAdminTabs = [
@@ -56,7 +57,7 @@ const otherDepartmentTabs = [
   { id: "notification", title: "Notification", icon: Bell },
 ]
 
-export function AppSidebar({ activeTab, setActiveTab, userRole, isCollapsed, onToggle }: AppSidebarProps) {
+export function AppSidebar({ activeTab, setActiveTab, userRole, isCollapsed, onToggle, unreadNotifications = 0 }: AppSidebarProps) {
   const getTabs = () => {
     switch (userRole) {
       case "super_admin":
@@ -87,18 +88,39 @@ export function AppSidebar({ activeTab, setActiveTab, userRole, isCollapsed, onT
 
   const SidebarButton = ({ tab }: { tab: any }) => {
     const isActive = activeTab === tab.id
+    const showNotificationBadge = tab.id === "notification" && unreadNotifications > 0
+    
     const button = (
       <Button
         variant={isActive ? "default" : "ghost"}
         className={cn(
-          "w-full justify-start gap-3 h-11 px-3",
+          "w-full justify-start gap-3 h-11 px-3 relative",
           isActive ? "bg-blue-600 text-white hover:bg-blue-700" : "hover:bg-gray-100 text-gray-700",
           isCollapsed && "justify-center px-0",
         )}
         onClick={() => setActiveTab(tab.id)}
       >
-        <tab.icon className="h-5 w-5 flex-shrink-0" />
-        {!isCollapsed && <span className="truncate">{tab.title}</span>}
+        <div className="relative">
+          <tab.icon className="h-5 w-5 flex-shrink-0" />
+          {showNotificationBadge && (
+            <Badge 
+              variant="destructive" 
+              className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
+            >
+              {unreadNotifications > 99 ? '99+' : unreadNotifications}
+            </Badge>
+          )}
+        </div>
+        {!isCollapsed && (
+          <div className="flex items-center justify-between flex-1">
+            <span className="truncate">{tab.title}</span>
+            {showNotificationBadge && (
+              <Badge variant="destructive" className="ml-auto text-xs">
+                {unreadNotifications > 99 ? '99+' : unreadNotifications}
+              </Badge>
+            )}
+          </div>
+        )}
       </Button>
     )
 
@@ -109,6 +131,11 @@ export function AppSidebar({ activeTab, setActiveTab, userRole, isCollapsed, onT
             <TooltipTrigger asChild>{button}</TooltipTrigger>
             <TooltipContent side="right">
               <p>{tab.title}</p>
+              {showNotificationBadge && (
+                <p className="text-xs text-red-600 mt-1">
+                  {unreadNotifications} unread notification{unreadNotifications !== 1 ? 's' : ''}
+                </p>
+              )}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

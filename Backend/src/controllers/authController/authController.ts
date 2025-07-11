@@ -2,21 +2,19 @@
 import { Request, Response } from 'express';
 import { Role } from '../../../generated/prisma';
 import { AuthService } from '../../services/authService/authService';
-
+import { signupSchema, loginSchema } from '../../validation/authValidation/authValidation';
+import { ZodIssue } from 'zod';
 function validateRole(role: any): role is Role {
   return ['super_admin', 'rd_department', 'other_department'].includes(role);
 }
-
 export class AuthController {
   static async signup(req: Request, res: Response) {
     try {
-      const { username, password, role } = req.body;
-      if (!username || !password || !role) {
-        return res.status(400).json({ error: 'username, password & role are required' });
+      const parsed = signupSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues.map((issue: ZodIssue) => issue.message).join(', ') });
       }
-      if (!validateRole(role)) {
-        return res.status(400).json({ error: 'Invalid role provided' });
-      }
+      const { username, password, role } = parsed.data;
       const user = await AuthService.signup(username, password, role);
       return res.status(201).json({ user });
     } catch (err: any) {
@@ -26,10 +24,11 @@ export class AuthController {
 
   static async login(req: Request, res: Response) {
     try {
-      const { username, password } = req.body;
-      if (!username || !password) {
-        return res.status(400).json({ error: 'username & password are required' });
+      const parsed = loginSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues.map((issue: ZodIssue) => issue.message).join(', ') });
       }
+      const { username, password } = parsed.data;
       const data = await AuthService.login(username, password);
       return res.status(200).json({ success: true, ...data });
     } catch (err: any) {

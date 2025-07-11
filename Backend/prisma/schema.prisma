@@ -21,10 +21,78 @@ model User {
   role      Role
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  department Department?
+  notifications Notification[]
 }
 
 enum Role {
   super_admin
   rd_department
   other_department
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  head      String
+  contact   String
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?  @unique
+  // Add relations for incoming and notifications
+  incomingLetters Incoming[] @relation("DepartmentIncoming")
+  notifications Notification[]
+}
+
+model Courier {
+  id            String   @id @default(uuid())
+  serviceName   String
+  code          String   @unique
+  contactPerson String
+  email         String
+  phone         String
+  address       String
+  status        String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum IncomingStatus {
+  RECEIVED
+  TRANSFERRED
+  COLLECTED
+  ARCHIVED
+}
+
+model Incoming {
+  id            String         @id @default(uuid())
+  image         String?        // URL or path to uploaded image
+  from          String
+  to            String         // department id (relation below)
+  priority      String
+  subject       String?
+  description   String?
+  filing        String?
+  qrCode        String         @unique
+  status        IncomingStatus @default(RECEIVED)
+  createdAt     DateTime       @default(now())
+  receivedDate  DateTime       @default(now())
+  department    Department     @relation("DepartmentIncoming", fields: [to], references: [id])
+  notifications Notification[]
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  message     String
+  incomingId  String
+  incoming    Incoming @relation(fields: [incomingId], references: [id])
+  department  Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?
+  user        User?    @relation(fields: [userId], references: [id])
+  userId      String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
 }

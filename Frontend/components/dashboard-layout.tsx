@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { DashboardContent } from "@/components/dashboard-content"
 import { Button } from "@/components/ui/button"
 import { LogOut, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import apiClient from "@/lib/api-client"
 
 interface DashboardLayoutProps {
   userRole: "super_admin" | "rd_department" | "other_department"
@@ -15,6 +16,23 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ userRole, onLogout }: DashboardLayoutProps) {
   const [activeTab, setActiveTab] = useState("incoming")
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
+
+  useEffect(() => {
+    fetchUnreadNotifications()
+    // Set up interval to fetch unread notifications every 30 seconds
+    const interval = setInterval(fetchUnreadNotifications, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const fetchUnreadNotifications = async () => {
+    try {
+      const response = await apiClient.get("/notifications/unread-count")
+      setUnreadNotifications(response.data.data.unreadCount || 0)
+    } catch (error) {
+      console.error("Failed to fetch unread notifications:", error)
+    }
+  }
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -31,6 +49,7 @@ export function DashboardLayout({ userRole, onLogout }: DashboardLayoutProps) {
           userRole={userRole}
           isCollapsed={!sidebarOpen}
           onToggle={() => setSidebarOpen(!sidebarOpen)}
+          unreadNotifications={unreadNotifications}
         />
       </div>
 

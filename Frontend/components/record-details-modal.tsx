@@ -1,250 +1,169 @@
 "use client"
 
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Calendar, Clock, User, FileText, AlertCircle, Edit, Trash2 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { Button } from "@/components/ui/button"
+import { Eye, Edit, Trash2, FileImage } from "lucide-react"
 
 interface RecordDetailsModalProps {
   isOpen: boolean
   onClose: () => void
   record: any
-  onEdit?: (record: any) => void
-  onDelete?: (id: string) => void
+  onEdit: (record: any) => void
+  onDelete: (record: any) => void
+  userRole: "super_admin" | "rd_department" | "other_department"
 }
 
-export function RecordDetailsModal({ isOpen, onClose, record, onEdit, onDelete }: RecordDetailsModalProps) {
-  const { toast } = useToast()
-
+export function RecordDetailsModal({ isOpen, onClose, record, onEdit, onDelete, userRole }: RecordDetailsModalProps) {
   if (!record) return null
 
-  const handleEdit = () => {
-    if (onEdit) {
-      onEdit(record)
-      toast({
-        title: "Edit Mode",
-        description: "Opening edit form for this record.",
-      })
-    }
-    onClose()
-  }
-
-  const handleDelete = () => {
-    if (onDelete && confirm("Are you sure you want to delete this record?")) {
-      onDelete(record.id)
-      toast({
-        title: "Record Deleted",
-        description: "The record has been deleted successfully.",
-        variant: "destructive",
-      })
-      onClose()
-    }
-  }
-
   const getPriorityColor = (priority: string) => {
-    switch (priority?.toLowerCase()) {
-      case "high":
-        return "destructive"
-      case "medium":
-        return "default"
-      case "low":
-        return "secondary"
+    switch (priority.toLowerCase()) {
+      case 'high':
+        return 'destructive'
+      case 'medium':
+        return 'default'
+      case 'low':
+        return 'secondary'
       default:
-        return "outline"
+        return 'outline'
     }
   }
 
   const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "completed":
-      case "delivered":
-      case "collected":
-        return "bg-green-100 text-green-800"
-      case "in progress":
-      case "in transit":
-        return "bg-blue-100 text-blue-800"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
+    switch (status) {
+      case 'RECEIVED':
+        return 'default'
+      case 'TRANSFERRED':
+        return 'secondary'
+      case 'COLLECTED':
+        return 'outline'
+      case 'ARCHIVED':
+        return 'destructive'
       default:
-        return "bg-gray-100 text-gray-800"
+        return 'outline'
     }
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Letter Details
+            <Eye className="h-5 w-5" />
+            Record Details - {record.qrCode || record.id}
           </DialogTitle>
-          <DialogDescription>Complete information about this letter record</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Header Info */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">{record.subject || "No Subject"}</h3>
-              <p className="text-sm text-gray-500 font-mono">{record.id}</p>
-            </div>
-            <div className="flex gap-2">
-              <Badge variant={getPriorityColor(record.priority)}>{record.priority}</Badge>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>
-                {record.status}
-              </span>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column - Details */}
+          <div className="space-y-6">
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-gray-500" />
-                <div>
-                  <p className="text-sm font-medium">From</p>
-                  <p className="text-sm text-gray-600">{record.from}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-gray-500" />
-                <div>
-                  <p className="text-sm font-medium">To</p>
-                  <p className="text-sm text-gray-600">{record.to}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-gray-500" />
-                <div>
-                  <p className="text-sm font-medium">Priority</p>
-                  <Badge variant={getPriorityColor(record.priority)} className="mt-1">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Basic Information</h3>
+                <div className="flex gap-2">
+                  <Badge variant={getPriorityColor(record.priority)}>
                     {record.priority}
+                  </Badge>
+                  <Badge variant={getStatusColor(record.status)}>
+                    {record.status}
                   </Badge>
                 </div>
               </div>
-            </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-gray-500" />
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm font-medium">Date</p>
-                  <p className="text-sm text-gray-600">{record.date || record.assignedDate}</p>
+                  <label className="text-sm font-medium text-gray-600">QR Code</label>
+                  <p className="font-mono text-sm bg-gray-100 p-2 rounded">{record.qrCode || record.id}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">From</label>
+                  <p className="text-sm">{record.from}</p>
                 </div>
               </div>
 
-              {record.time && (
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-gray-500" />
-                  <div>
-                    <p className="text-sm font-medium">Time</p>
-                    <p className="text-sm text-gray-600">{record.time}</p>
-                  </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">To Department</label>
+                <p className="text-sm">{record.department?.name || record.to || 'Unknown Department'}</p>
+              </div>
+
+              {record.subject && (
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Subject</label>
+                  <p className="text-sm">{record.subject}</p>
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-gray-500" />
+              {record.description && (
                 <div>
-                  <p className="text-sm font-medium">Status</p>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>
-                    {record.status}
-                  </span>
+                  <label className="text-sm font-medium text-gray-600">Description</label>
+                  <p className="text-sm whitespace-pre-wrap">{record.description}</p>
                 </div>
-              </div>
+              )}
+
+              {record.filing && (
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Filing</label>
+                  <p className="text-sm">{record.filing}</p>
+                </div>
+              )}
             </div>
+
+            {userRole === "super_admin" && (
+              <div className="flex gap-2 pt-4 border-t">
+                <Button
+                  onClick={() => {
+                    onEdit(record)
+                    onClose()
+                  }}
+                  className="flex-1"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Record
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    onDelete(record)
+                    onClose()
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              </div>
+            )}
           </div>
 
-          {/* Additional Information */}
-          {(record.description || record.courierService || record.destination) && (
-            <>
-              <Separator />
-              <div className="space-y-4">
-                {record.description && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Description</p>
-                    <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">{record.description}</p>
+          {/* Right Column - Image */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Document Image</h3>
+            {record.image ? (
+              <div className="relative">
+                <img
+                  src={record.image}
+                  alt="Document"
+                  className="w-full h-auto max-h-[400px] object-contain border rounded-lg shadow-sm"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.style.display = 'none'
+                    target.nextElementSibling?.classList.remove('hidden')
+                  }}
+                />
+                <div className="hidden absolute inset-0 flex items-center justify-center bg-gray-100 border rounded-lg">
+                  <div className="text-center">
+                    <FileImage className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">Image not available</p>
                   </div>
-                )}
-
-                {record.courierService && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Courier Service</p>
-                    <p className="text-sm text-gray-600">{record.courierService}</p>
-                  </div>
-                )}
-
-                {record.destination && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Destination</p>
-                    <p className="text-sm text-gray-600">{record.destination}</p>
-                  </div>
-                )}
-
-                {record.filing && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Filing</p>
-                    <p className="text-sm text-gray-600">{record.filing}</p>
-                  </div>
-                )}
+                </div>
               </div>
-            </>
-          )}
-
-          {/* Tracking Information */}
-          {(record.letterCode || record.scannedDate || record.collectedDate) && (
-            <>
-              <Separator />
-              <div className="space-y-4">
-                <h4 className="font-medium">Tracking Information</h4>
-
-                {record.letterCode && (
-                  <div>
-                    <p className="text-sm font-medium">Letter Code</p>
-                    <p className="text-sm text-gray-600 font-mono">{record.letterCode}</p>
-                  </div>
-                )}
-
-                {record.scannedDate && (
-                  <div>
-                    <p className="text-sm font-medium">Scanned Date</p>
-                    <p className="text-sm text-gray-600">{record.scannedDate}</p>
-                  </div>
-                )}
-
-                {record.collectedDate && (
-                  <div>
-                    <p className="text-sm font-medium">Collected Date</p>
-                    <p className="text-sm text-gray-600">{record.collectedDate}</p>
-                  </div>
-                )}
+            ) : (
+              <div className="flex items-center justify-center h-[400px] bg-gray-100 border rounded-lg">
+                <div className="text-center">
+                  <FileImage className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No image available</p>
+                </div>
               </div>
-            </>
-          )}
-
-          {/* Action Buttons */}
-          <Separator />
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={onClose} className="bg-transparent">
-              Close
-            </Button>
-            {onEdit && (
-              <Button variant="outline" onClick={handleEdit} className="flex items-center gap-2 bg-transparent">
-                <Edit className="h-4 w-4" />
-                Edit
-              </Button>
-            )}
-            {onDelete && (
-              <Button variant="destructive" onClick={handleDelete} className="flex items-center gap-2">
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </Button>
             )}
           </div>
         </div>

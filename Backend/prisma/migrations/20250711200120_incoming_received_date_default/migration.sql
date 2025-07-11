@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Incoming" ALTER COLUMN "receivedDate" SET DEFAULT CURRENT_TIMESTAMP;

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Role } from '../../generated/prisma';
+import { Request } from 'express';
 
 // Role enum validation
 export const RoleSchema = z.nativeEnum(Role);
@@ -73,3 +74,12 @@ export type UserResponse = z.infer<typeof UserResponseSchema>;
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 export type RefreshResponse = z.infer<typeof RefreshResponseSchema>;
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
+
+// Extended Request type with user
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    username: string;
+    role: Role;
+  };
+}

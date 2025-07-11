@@ -242,18 +242,12 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
               </div>
               <div>
                 <Label htmlFor="to">To *</Label>
-                <Select value={formData.to} onValueChange={(value) => handleInputChange("to", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select destination" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="courier">Courier Service</SelectItem>
-                    <SelectItem value="education">Education Department</SelectItem>
-                    <SelectItem value="water">Water Department</SelectItem>
-                    <SelectItem value="health">Health Department</SelectItem>
-                    <SelectItem value="transport">Transport Department</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="to"
+                  value={formData.to}
+                  onChange={(e) => handleInputChange("to", e.target.value)}
+                  placeholder="Enter destination"
+                />
               </div>
             </div>
 
@@ -271,20 +265,6 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="receivedDate">Received Date</Label>
-                <DatePicker date={receivedDate} onDateChange={setReceivedDate} />
-              </div>
-              <div>
-                <Label htmlFor="receivedTime">Received Time</Label>
-                <TimePicker
-                  value={formData.receivedTime}
-                  onChange={(time) => handleInputChange("receivedTime", time)}
-                  placeholder="Select received time"
-                />
-              </div>
-            </div>
 
             <div>
               <Label htmlFor="subject">Subject</Label>

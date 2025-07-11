@@ -2,32 +2,60 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Camera, Upload, Scan, QrCode, Loader2, X, FileImage, Inbox } from "lucide-react"
+import { Camera, Upload, Scan, QrCode, Loader2, X, FileImage, Inbox, Plus, RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { CameraModal } from "@/components/camera-modal"
 import { useToast } from "@/hooks/use-toast"
 import { DatePicker } from "@/components/date-picker"
 import { QRGenerator } from "@/components/qr-generator"
 import { TimePicker } from "@/components/time-picker"
+import apiClient from "@/lib/api-client"
 
 interface IncomingTabProps {
   userRole: "super_admin" | "rd_department" | "other_department"
 }
+
+interface IncomingRecord {
+  id: string
+  from: string
+  to: string
+  priority: string
+  subject?: string
+  description?: string
+  filing?: string
+  qrCode: string
+  status: "RECEIVED" | "TRANSFERRED" | "COLLECTED" | "ARCHIVED"
+  image?: string
+  createdAt: string
+  receivedDate: string
+  department?: {
+    id: string
+    name: string
+    code: string
+  }
+}
+
+const generateUniqueQR = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  } else {
+    // fallback for environments without crypto.randomUUID
+    return Math.random().toString(36).substr(2, 9) + Date.now();
+  }
+};
 
 export function IncomingTab({ userRole }: IncomingTabProps) {
   const [formData, setFormData] = useState({
     from: "",
     to: "",
     priority: "",
-    receivedDate: "",
-    receivedTime: "",
     subject: "",
     description: "",
     filing: "",
@@ -42,6 +70,45 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
   const { toast } = useToast()
   const [receivedDate, setReceivedDate] = useState<Date>()
   const [qrData, setQrData] = useState("")
+  const [departments, setDepartments] = useState<any[]>([])
+  const [uniqueQR, setUniqueQR] = useState(generateUniqueQR());
+  const [incomingRecords, setIncomingRecords] = useState<IncomingRecord[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    fetchDepartments()
+    fetchIncomingRecords()
+  }, [])
+
+  const fetchDepartments = async () => {
+    try {
+      const response = await apiClient.get("/departments")
+      setDepartments(response.data.departments || [])
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch departments",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const fetchIncomingRecords = async () => {
+    setIsLoading(true)
+    try {
+      const response = await apiClient.get("/incoming")
+      setIncomingRecords(response.data.records || [])
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch incoming records",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -106,7 +173,7 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.from || !formData.to || !formData.priority) {
       toast({
         title: "Missing Information",
@@ -116,56 +183,88 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
       return
     }
 
-    toast({
-      title: "Letter Saved",
-      description: "Incoming letter has been saved successfully.",
-    })
+    setIsSubmitting(true)
+    try {
+      const formDataToSend = new FormData()
+      formDataToSend.append('from', formData.from)
+      formDataToSend.append('to', formData.to)
+      formDataToSend.append('priority', formData.priority)
+      formDataToSend.append('subject', formData.subject)
+      formDataToSend.append('description', formData.description)
+      formDataToSend.append('filing', formData.filing)
+      formDataToSend.append('qrCode', uniqueQR)
+      
+      if (capturedImage) {
+        // Convert base64 to blob for upload
+        const response = await fetch(capturedImage)
+        const blob = await response.blob()
+        formDataToSend.append('image', blob, 'document.jpg')
+      }
 
-    // Reset form
-    setFormData({
-      from: "",
-      to: "",
-      priority: "",
-      receivedDate: "",
-      receivedTime: "",
-      subject: "",
-      description: "",
-      filing: "",
-    })
-    setCapturedImage(null)
-    setQrGenerated(false)
+      const response = await apiClient.post("/incoming", formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+
+      toast({
+        title: "Success",
+        description: "Incoming letter has been saved successfully.",
+      })
+
+      // Reset form
+      setFormData({
+        from: "",
+        to: "",
+        priority: "",
+        subject: "",
+        description: "",
+        filing: "",
+      })
+      setCapturedImage(null)
+      setQrGenerated(false)
+      setUniqueQR(generateUniqueQR())
+      
+      // Refresh the records list
+      fetchIncomingRecords()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.error?.[0]?.message || "Failed to save incoming letter",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  // Hardcoded data for RD Department incoming records
-  const incomingRecords = [
-    {
-      id: "QR001",
-      from: "Education Department",
-      to: "RD Department",
-      priority: "High",
-      date: "2024-01-15",
-      subject: "Budget Allocation Request",
-      status: "Pending",
-    },
-    {
-      id: "QR002",
-      from: "Water Department",
-      to: "RD Department",
-      priority: "Medium",
-      date: "2024-01-14",
-      subject: "Infrastructure Development",
-      status: "In Progress",
-    },
-    {
-      id: "QR003",
-      from: "Health Department",
-      to: "RD Department",
-      priority: "High",
-      date: "2024-01-13",
-      subject: "Medical Equipment Purchase",
-      status: "Completed",
-    },
-  ]
+  const getPriorityColor = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case 'high':
+        return 'destructive'
+      case 'medium':
+        return 'default'
+      case 'low':
+        return 'secondary'
+      default:
+        return 'outline'
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'RECEIVED':
+        return 'default'
+      case 'TRANSFERRED':
+        return 'secondary'
+      case 'COLLECTED':
+        return 'outline'
+      case 'ARCHIVED':
+        return 'destructive'
+      default:
+        return 'outline'
+    }
+  }
 
   if (userRole === "other_department") {
     return (
@@ -318,12 +417,18 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
               </div>
               <div>
                 <Label htmlFor="to">To *</Label>
-                <Input
-                  id="to"
-                  value={formData.to}
-                  onChange={(e) => handleInputChange("to", e.target.value)}
-                  placeholder="Recipient name"
-                />
+                <Select value={formData.to} onValueChange={(value) => handleInputChange("to", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id}>
+                        {dept.name} {dept.code ? `(${dept.code})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -339,21 +444,6 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
                   <SelectItem value="low">Low</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Received Date</Label>
-                <DatePicker date={receivedDate} onDateChange={setReceivedDate} placeholder="Select received date" />
-              </div>
-              <div>
-                <Label htmlFor="receivedTime">Received Time</Label>
-                <TimePicker
-                  value={formData.receivedTime}
-                  onChange={(time) => handleInputChange("receivedTime", time)}
-                  placeholder="Select received time"
-                />
-              </div>
             </div>
 
             <div>
@@ -389,14 +479,29 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
 
             <div className="pt-4 border-t">
               <QRGenerator
-                data={`${formData.from}-${formData.to}-${formData.subject}-${Date.now()}`}
+                data={uniqueQR}
                 onGenerated={(qr) => setQrData(qr)}
               />
             </div>
 
             <div className="flex gap-2 pt-4 border-t">
-              <Button onClick={handleSubmit} variant="outline" className="ml-auto bg-transparent">
-                Save Letter
+              <Button 
+                onClick={handleSubmit} 
+                variant="outline" 
+                className="ml-auto bg-transparent"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Save Letter
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>
@@ -404,36 +509,59 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
 
         <Card className="xl:col-span-1">
           <CardHeader>
-            <CardTitle>Recent Incoming Records</CardTitle>
-            <CardDescription>List of recently added incoming letters</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Recent Incoming Records</CardTitle>
+                <CardDescription>List of recently added incoming letters</CardDescription>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={fetchIncomingRecords}
+                disabled={isLoading}
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {incomingRecords.map((record) => (
-                <div key={record.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-sm font-medium">{record.id}</span>
-                    <Badge
-                      variant={
-                        record.priority === "High"
-                          ? "destructive"
-                          : record.priority === "Medium"
-                            ? "default"
-                            : "secondary"
-                      }
-                    >
-                      {record.priority}
-                    </Badge>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {incomingRecords.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    No incoming records found
                   </div>
-                  <p className="font-medium text-gray-900 mb-1">{record.subject}</p>
-                  <p className="text-sm text-gray-600 mb-2">From: {record.from}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">{record.date}</span>
-                    <Badge variant="outline">{record.status}</Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ) : (
+                  incomingRecords.slice(0, 3).map((record) => (
+                    <div key={record.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-mono text-sm font-medium">{record.qrCode}</span>
+                        <Badge variant={getPriorityColor(record.priority)}>
+                          {record.priority}
+                        </Badge>
+                      </div>
+                      <p className="font-medium text-gray-900 mb-1">{record.subject || 'No subject'}</p>
+                      <p className="text-sm text-gray-600 mb-2">From: {record.from}</p>
+                      <p className="text-sm text-gray-600 mb-2">
+                        To: {record.department?.name || 'Unknown Department'}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">
+                          {new Date(record.createdAt).toLocaleDateString()}
+                        </span>
+                        <Badge variant={getStatusColor(record.status)}>
+                          {record.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

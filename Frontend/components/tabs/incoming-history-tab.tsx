@@ -1,135 +1,265 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Eye, Edit, Trash2 } from "lucide-react"
+import { Search, Eye, Edit, Trash2, Loader2, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RecordDetailsModal } from "@/components/record-details-modal"
 import { EditRecordModal } from "@/components/edit-record-modal"
 import { useToast } from "@/hooks/use-toast"
+import apiClient from "@/lib/api-client"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface IncomingHistoryTabProps {
   userRole: "super_admin" | "rd_department" | "other_department"
+}
+
+interface IncomingRecord {
+  id: string
+  from: string
+  to: string
+  priority: string
+  subject?: string
+  description?: string
+  filing?: string
+  qrCode: string
+  status: "RECEIVED" | "TRANSFERRED" | "COLLECTED" | "ARCHIVED"
+  image?: string
+  createdAt: string
+  receivedDate: string
+  department?: {
+    id: string
+    name: string
+    code: string
+  }
 }
 
 export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterPriority, setFilterPriority] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
-  const [selectedRecord, setSelectedRecord] = useState<any>(null)
+  const [selectedRecord, setSelectedRecord] = useState<IncomingRecord | null>(null)
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [records, setRecords] = useState([
-    {
-      id: "QR001",
-      from: "Education Department",
-      to: "RD Department",
-      priority: "High",
-      date: "2024-01-15",
-      time: "10:30 AM",
-      subject: "Budget Allocation Request",
-      status: "Collected",
-      description: "Request for additional budget allocation for school infrastructure development project",
-      filing: "EDU/2024/001",
-    },
-    {
-      id: "QR002",
-      from: "Water Department",
-      to: "RD Department",
-      priority: "Medium",
-      date: "2024-01-14",
-      time: "02:15 PM",
-      subject: "Infrastructure Development",
-      status: "Pending",
-      description: "Proposal for water supply infrastructure development in rural areas",
-      filing: "WAT/2024/002",
-    },
-    {
-      id: "QR003",
-      from: "Health Department",
-      to: "RD Department",
-      priority: "High",
-      date: "2024-01-13",
-      time: "09:45 AM",
-      subject: "Medical Equipment Purchase",
-      status: "In Progress",
-      description: "Request for approval of medical equipment purchase for district hospital",
-      filing: "HLT/2024/003",
-    },
-    {
-      id: "QR004",
-      from: "Transport Department",
-      to: "RD Department",
-      priority: "Low",
-      date: "2024-01-12",
-      time: "04:20 PM",
-      subject: "Vehicle Maintenance",
-      status: "Completed",
-      description: "Request for vehicle maintenance budget approval for official vehicles",
-      filing: "TRP/2024/004",
-    },
-    {
-      id: "QR005",
-      from: "Agriculture Department",
-      to: "RD Department",
-      priority: "Medium",
-      date: "2024-01-11",
-      time: "11:00 AM",
-      subject: "Crop Insurance Scheme",
-      status: "Collected",
-      description: "Proposal for new crop insurance scheme implementation for farmers",
-      filing: "AGR/2024/005",
-    },
-  ])
+  const [records, setRecords] = useState<IncomingRecord[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [recordToDelete, setRecordToDelete] = useState<IncomingRecord | null>(null)
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    total: 0,
+    hasMore: false
+  })
 
   const { toast } = useToast()
 
+  useEffect(() => {
+    fetchRecords()
+  }, [pagination.currentPage])
+
+  const fetchRecords = async (page: number = 1) => {
+    setIsLoading(true)
+    try {
+      const response = await apiClient.get(`/incoming?page=${page}&limit=30`)
+      setRecords(response.data.records || [])
+      setPagination({
+        currentPage: response.data.currentPage || 1,
+        totalPages: response.data.totalPages || 1,
+        total: response.data.total || 0,
+        hasMore: response.data.hasMore || false
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.error?.[0]?.message || "Failed to fetch records",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handlePageChange = (newPage: number) => {
+    setPagination(prev => ({ ...prev, currentPage: newPage }))
+  }
+
   const filteredHistory = records.filter((item) => {
     const matchesSearch =
-      item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.qrCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.from.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.subject.toLowerCase().includes(searchTerm.toLowerCase())
+      (item.subject && item.subject.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesPriority = filterPriority === "all" || item.priority.toLowerCase() === filterPriority
     const matchesStatus = filterStatus === "all" || item.status.toLowerCase() === filterStatus.toLowerCase()
 
     return matchesSearch && matchesPriority && matchesStatus
   })
 
-  const handleViewDetails = (record: any) => {
+  const handleViewDetails = (record: IncomingRecord) => {
     setSelectedRecord(record)
     setIsDetailsModalOpen(true)
   }
 
-  const handleEdit = (record: any) => {
+  const handleEdit = (record: IncomingRecord) => {
+    if (userRole !== "super_admin") {
+      toast({
+        title: "Access Denied",
+        description: "Only super admins can edit records.",
+        variant: "destructive",
+      })
+      return
+    }
     setSelectedRecord(record)
     setIsEditModalOpen(true)
   }
 
-  const handleSaveEdit = (updatedRecord: any) => {
-    setRecords(records.map((record) => (record.id === updatedRecord.id ? updatedRecord : record)))
-    toast({
-      title: "Record Updated",
-      description: `Record ${updatedRecord.id} has been updated successfully.`,
-    })
+  const handleSaveEdit = async (updatedRecord: any) => {
+    try {
+      const formData = new FormData()
+      
+      // Add all non-image fields
+      Object.keys(updatedRecord).forEach(key => {
+        if (key !== 'id' && key !== 'image' && updatedRecord[key] !== undefined && updatedRecord[key] !== '') {
+          formData.append(key, updatedRecord[key])
+        }
+      })
+
+      // Handle image separately - only upload if it's a new image (base64)
+      if (updatedRecord.image && typeof updatedRecord.image === 'string' && updatedRecord.image.startsWith('data:')) {
+        // Convert base64 to blob for upload
+        const response = await fetch(updatedRecord.image)
+        const blob = await response.blob()
+        formData.append('image', blob, 'document.jpg')
+      }
+      // If image is a URL (existing image), don't include it in the update
+
+      await apiClient.put(`/incoming/${updatedRecord.id}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+
+      // Refresh the records
+      await fetchRecords(pagination.currentPage)
+
+      toast({
+        title: "Record Updated",
+        description: `Record ${updatedRecord.qrCode} has been updated successfully.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.error?.[0]?.message || "Failed to update record",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleDelete = (id: string) => {
-    setRecords(records.filter((record) => record.id !== id))
-    toast({
-      title: "Record Deleted",
-      description: `Record ${id} has been deleted successfully.`,
-      variant: "destructive",
-    })
+  const handleDeleteClick = (record: IncomingRecord) => {
+    if (userRole !== "super_admin") {
+      toast({
+        title: "Access Denied",
+        description: "Only super admins can delete records.",
+        variant: "destructive",
+      })
+      return
+    }
+    setRecordToDelete(record)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!recordToDelete) return
+
+    setIsDeleting(recordToDelete.id)
+    try {
+      await apiClient.delete(`/incoming/${recordToDelete.id}`)
+      
+      // Remove from local state
+      setRecords(records.filter((record) => record.id !== recordToDelete.id))
+      
+      toast({
+        title: "Record Deleted",
+        description: `Record has been deleted successfully.`,
+        variant: "destructive",
+      })
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        toast({
+          title: "Record Not Found",
+          description: "This record has already been deleted or doesn't exist.",
+          variant: "destructive",
+        })
+        // Refresh the records list to sync with server
+        fetchRecords(pagination.currentPage)
+      } else {
+        toast({
+          title: "Error",
+          description: error.response?.data?.error?.[0]?.message || "Failed to delete record",
+          variant: "destructive",
+        })
+      }
+    } finally {
+      setIsDeleting(null)
+      setDeleteDialogOpen(false)
+      setRecordToDelete(null)
+    }
+  }
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case 'high':
+        return 'destructive'
+      case 'medium':
+        return 'default'
+      case 'low':
+        return 'secondary'
+      default:
+        return 'outline'
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'RECEIVED':
+        return 'default'
+      case 'TRANSFERRED':
+        return 'secondary'
+      case 'COLLECTED':
+        return 'outline'
+      case 'ARCHIVED':
+        return 'destructive'
+      default:
+        return 'outline'
+    }
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Incoming History</h1>
+        <Button
+          variant="outline"
+          onClick={() => fetchRecords(1)}
+          disabled={isLoading}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       <Card>
@@ -167,10 +297,10 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="in progress">In Progress</SelectItem>
+                <SelectItem value="received">Received</SelectItem>
+                <SelectItem value="transferred">Transferred</SelectItem>
                 <SelectItem value="collected">Collected</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -180,87 +310,145 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
       <Card>
         <CardHeader>
           <CardTitle>Incoming Letters History</CardTitle>
-          <CardDescription>Complete list of all incoming letters ({filteredHistory.length} records)</CardDescription>
+          <CardDescription>
+            Complete list of all incoming letters ({pagination.total} total records, page {pagination.currentPage} of {pagination.totalPages})
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>QR Code</TableHead>
-                  <TableHead>From</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredHistory.map((record) => (
-                  <TableRow key={record.id} className="hover:bg-gray-50">
-                    <TableCell className="font-mono font-medium">{record.id}</TableCell>
-                    <TableCell>{record.from}</TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={record.subject}>
-                      {record.subject}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          record.priority === "High"
-                            ? "destructive"
-                            : record.priority === "Medium"
-                              ? "default"
-                              : "secondary"
-                        }
-                      >
-                        {record.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{record.date}</TableCell>
-                    <TableCell>{record.time}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{record.status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewDetails(record)}
-                          className="h-8 w-8 p-0"
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(record)}
-                          className="h-8 w-8 p-0"
-                          title="Edit Record"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDelete(record.id)}
-                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                          title="Delete Record"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>QR Code</TableHead>
+                      <TableHead>From</TableHead>
+                      <TableHead>To</TableHead>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredHistory.map((record) => (
+                      <TableRow key={record.id} className="hover:bg-gray-50">
+                        <TableCell className="font-mono font-medium">{record.qrCode}</TableCell>
+                        <TableCell>{record.from}</TableCell>
+                        <TableCell>{record.department?.name || 'Unknown'}</TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={record.subject}>
+                          {record.subject || 'No subject'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getPriorityColor(record.priority)}>
+                            {record.priority}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(record.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusColor(record.status)}>
+                            {record.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleViewDetails(record)}
+                              className="h-8 w-8 p-0"
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {userRole === "super_admin" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEdit(record)}
+                                  className="h-8 w-8 p-0"
+                                  title="Edit Record"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDeleteClick(record)}
+                                  disabled={isDeleting === record.id}
+                                  className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                                  title="Delete Record"
+                                >
+                                  {isDeleting === record.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
-          {filteredHistory.length === 0 && (
+              {/* Pagination */}
+              {pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-6">
+                  <div className="text-sm text-gray-500">
+                    Showing page {pagination.currentPage} of {pagination.totalPages} ({pagination.total} total records)
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      disabled={pagination.currentPage <= 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                        const pageNum = i + 1
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={pagination.currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePageChange(pageNum)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {pageNum}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      disabled={pagination.currentPage >= pagination.totalPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {!isLoading && filteredHistory.length === 0 && (
             <div className="text-center py-12">
               <div className="text-gray-400 mb-4">
                 <Search className="h-12 w-12 mx-auto" />
@@ -277,7 +465,8 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
         onClose={() => setIsDetailsModalOpen(false)}
         record={selectedRecord}
         onEdit={handleEdit}
-        onDelete={handleDelete}
+        onDelete={handleDeleteClick}
+        userRole={userRole}
       />
 
       <EditRecordModal
@@ -286,6 +475,36 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
         record={selectedRecord}
         onSave={handleSaveEdit}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the record{" "}
+              <span className="font-mono font-medium">{recordToDelete?.qrCode}</span> and remove it from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting === recordToDelete?.id}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting === recordToDelete?.id ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Record"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

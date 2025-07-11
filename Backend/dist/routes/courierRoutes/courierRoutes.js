@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const courierController_1 = require("../../controllers/courierController/courierController");
+const router = (0, express_1.Router)();
+router.post('/create', courierController_1.CourierController.create);
+router.get('/', courierController_1.CourierController.getAll);
+router.get('/:id', courierController_1.CourierController.getById);
+router.put('/:id', courierController_1.CourierController.updateById);
+router.delete('/:id', courierController_1.CourierController.deleteById);
+router.patch('/:id/status', courierController_1.CourierController.setStatus);
+exports.default = router;
