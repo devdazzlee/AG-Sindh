@@ -25,13 +25,17 @@ export class OutgoingController {
 
       // If file is uploaded, upload to Cloudinary and delete local file
       if (req.file) {
-        // Upload to Cloudinary
-        const result = await cloudinary.uploader.upload(req.file.path, {
-          folder: 'outgoing_letters',
+        const result = await new Promise<any>((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: 'outgoing_letters' },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            }
+          );
+          stream.end(req.file!.buffer);
         });
-        imageUrl = result.secure_url;
-        // Delete local file
-        fs.unlinkSync(req.file.path);
+        imageUrl = (result as any).secure_url;
       }
 
       const outgoing = await OutgoingService.createOutgoing({
@@ -127,13 +131,17 @@ export class OutgoingController {
 
       // If file is uploaded, upload to Cloudinary and delete local file
       if (req.file) {
-        // Upload to Cloudinary
-        const result = await cloudinary.uploader.upload(req.file.path, {
-          folder: 'outgoing_letters',
+        const result = await new Promise<any>((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: 'outgoing_letters' },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            }
+          );
+          stream.end(req.file!.buffer);
         });
-        imageUrl = result.secure_url;
-        // Delete local file
-        fs.unlinkSync(req.file.path);
+        imageUrl = (result as any).secure_url;
       }
 
       const updateData: any = {

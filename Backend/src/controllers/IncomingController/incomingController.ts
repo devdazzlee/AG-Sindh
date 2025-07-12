@@ -31,14 +31,7 @@ const requireSuperAdmin = (req: AuthenticatedRequest, res: Response, next: NextF
 };
 
 // Multer config for image upload
-const storage: StorageEngine = multer.diskStorage({
-  destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
-    cb(null, path.join(__dirname, '../../../uploads/incoming'));
-  },
-  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  },
-});
+const storage: StorageEngine = multer.memoryStorage();
 export const upload = multer({ storage });
 
 export class IncomingController {
@@ -49,13 +42,17 @@ export class IncomingController {
       
       // Only update image if a new file is uploaded
       if (mReq.file) {
-        // Upload to Cloudinary
-        const result = await cloudinary.uploader.upload(mReq.file.path, {
-          folder: 'incoming_letters',
+        const result = await new Promise<any>((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: 'incoming_letters' }, // or 'outgoing_letters'
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            }
+          );
+          stream.end(mReq.file!.buffer); // non-null assertion
         });
-        data.image = result.secure_url;
-        // Delete local file
-        fs.unlinkSync(mReq.file.path);
+        data.image = (result as any).secure_url;
       }
       // If no new file, don't include image in the update data (preserve existing)
       
@@ -126,12 +123,17 @@ export class IncomingController {
       // Only update image if a new file is uploaded
       if (mReq.file) {
         // Upload to Cloudinary
-        const result = await cloudinary.uploader.upload(mReq.file.path, {
-          folder: 'incoming_letters',
+        const result = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: 'incoming_letters' }, // or 'outgoing_letters'
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            }
+          );
+          stream.end(mReq.file.buffer);
         });
         data.image = result.secure_url;
-        // Delete local file
-        fs.unlinkSync(mReq.file.path);
       }
       // If no new file, don't include image in the update data (preserve existing)
       

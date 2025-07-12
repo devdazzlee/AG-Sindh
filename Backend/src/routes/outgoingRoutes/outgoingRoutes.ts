@@ -7,16 +7,8 @@ import path from 'path';
 const router = Router();
 
 // Multer config for image upload (matching incoming pattern)
-const storage: StorageEngine = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../../uploads/outgoing'));
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  },
-});
-
-const upload = multer({ storage });
+const storage: StorageEngine = multer.memoryStorage();
+export const upload = multer({ storage });
 
 // Apply authentication to all routes
 router.use(requireAuth);
