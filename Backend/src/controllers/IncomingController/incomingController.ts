@@ -23,7 +23,7 @@ const requireSuperAdmin = (req: AuthenticatedRequest, res: Response, next: NextF
     expectedRole: 'super_admin',
     isMatch: req.user?.role === 'super_admin'
   });
-  
+
   if (!req.user || req.user.role !== 'super_admin') {
     return res.status(403).json({ error: 'Access denied. Super admin privileges required.' });
   }
@@ -39,7 +39,7 @@ export class IncomingController {
     try {
       const mReq = req as MulterRequest;
       const data = { ...req.body };
-      
+
       // Only update image if a new file is uploaded
       if (mReq.file) {
         const result = await new Promise<any>((resolve, reject) => {
@@ -55,12 +55,12 @@ export class IncomingController {
         data.image = (result as any).secure_url;
       }
       // If no new file, don't include image in the update data (preserve existing)
-      
+
       const parsed = incomingCreateSchema.safeParse(data);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.errors });
       }
-      
+
       // Pass the creator's user ID to exclude them from notifications
       const creatorUserId = req.user?.id;
       const incoming = await IncomingService.createIncoming(parsed.data, creatorUserId);
@@ -75,7 +75,7 @@ export class IncomingController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 30;
       const offset = (page - 1) * limit;
-      
+
       // Get user's department information if they are a department user
       let userWithDepartment: any = req.user;
       if (req.user && req.user.role === 'other_department') {
@@ -85,7 +85,7 @@ export class IncomingController {
         });
         userWithDepartment = userWithDept || req.user;
       }
-      
+
       const result = await IncomingService.getAllIncoming(limit, offset, userWithDepartment);
       res.json(result);
     } catch (err) {
@@ -119,7 +119,7 @@ export class IncomingController {
     try {
       const mReq = req as MulterRequest;
       const data = { ...req.body };
-      
+
       // Only update image if a new file is uploaded
       if (mReq.file) {
         // Upload to Cloudinary
@@ -131,12 +131,12 @@ export class IncomingController {
               resolve(result);
             }
           );
-          stream.end(mReq.file.buffer);
+          stream.end(req.file!.buffer);
         });
-        data.image = result.secure_url;
+        data.image = (result as any).secure_url;
       }
       // If no new file, don't include image in the update data (preserve existing)
-      
+
       const parsed = incomingUpdateSchema.safeParse(data);
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.errors });
@@ -152,7 +152,7 @@ export class IncomingController {
   static async delete(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      
+
       try {
         await IncomingService.deleteIncoming(id);
         res.status(204).send();
@@ -188,18 +188,18 @@ export class IncomingController {
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.errors });
       }
-      
+
       const result = await IncomingService.updateStatusByQRCode(qrCode, parsed.data.status);
-      
+
       if (result.statusChanged) {
-        res.json({ 
+        res.json({
           success: true,
           message: result.message,
           updated: result.updated,
           statusChanged: true
         });
       } else {
-        res.json({ 
+        res.json({
           success: true,
           message: result.message,
           updated: result.updated,
@@ -208,9 +208,9 @@ export class IncomingController {
       }
     } catch (err: any) {
       if (err.message === 'Incoming letter not found with this QR code') {
-        return res.status(404).json({ 
+        return res.status(404).json({
           success: false,
-          error: 'Incoming letter not found with this QR code' 
+          error: 'Incoming letter not found with this QR code'
         });
       }
       next(err);

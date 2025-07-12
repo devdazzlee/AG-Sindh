@@ -8,7 +8,6 @@ exports.requireSuperAdmin = requireSuperAdmin;
 const outgoingService_1 = require("../../services/outgoingService/outgoingService");
 const outgoingValidation_1 = require("../../validation/outgoingValidation/outgoingValidation");
 const cloudinary_1 = __importDefault(require("../../lib/cloudinary"));
-const fs_1 = __importDefault(require("fs"));
 const outgoingValidation_2 = require("../../validation/outgoingValidation/outgoingValidation");
 const prisma_1 = require("../../../generated/prisma");
 const prisma = new prisma_1.PrismaClient();
@@ -26,13 +25,15 @@ class OutgoingController {
             let imageUrl;
             // If file is uploaded, upload to Cloudinary and delete local file
             if (req.file) {
-                // Upload to Cloudinary
-                const result = await cloudinary_1.default.uploader.upload(req.file.path, {
-                    folder: 'outgoing_letters',
+                const result = await new Promise((resolve, reject) => {
+                    const stream = cloudinary_1.default.uploader.upload_stream({ folder: 'outgoing_letters' }, (error, result) => {
+                        if (error)
+                            return reject(error);
+                        resolve(result);
+                    });
+                    stream.end(req.file.buffer);
                 });
                 imageUrl = result.secure_url;
-                // Delete local file
-                fs_1.default.unlinkSync(req.file.path);
             }
             const outgoing = await outgoingService_1.OutgoingService.createOutgoing({
                 from,
@@ -119,13 +120,15 @@ class OutgoingController {
             let imageUrl;
             // If file is uploaded, upload to Cloudinary and delete local file
             if (req.file) {
-                // Upload to Cloudinary
-                const result = await cloudinary_1.default.uploader.upload(req.file.path, {
-                    folder: 'outgoing_letters',
+                const result = await new Promise((resolve, reject) => {
+                    const stream = cloudinary_1.default.uploader.upload_stream({ folder: 'outgoing_letters' }, (error, result) => {
+                        if (error)
+                            return reject(error);
+                        resolve(result);
+                    });
+                    stream.end(req.file.buffer);
                 });
                 imageUrl = result.secure_url;
-                // Delete local file
-                fs_1.default.unlinkSync(req.file.path);
             }
             const updateData = {
                 from,

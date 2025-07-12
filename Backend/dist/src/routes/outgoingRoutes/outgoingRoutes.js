@@ -3,26 +3,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.upload = void 0;
 const express_1 = require("express");
 const outgoingController_1 = require("../../controllers/outgoingController/outgoingController");
 const auth_1 = require("../../middlewares/auth");
 const multer_1 = __importDefault(require("multer"));
-const path_1 = __importDefault(require("path"));
 const router = (0, express_1.Router)();
 // Multer config for image upload (matching incoming pattern)
-const storage = multer_1.default.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path_1.default.join(__dirname, '../../../uploads/outgoing'));
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + '-' + file.originalname);
-    },
-});
-const upload = (0, multer_1.default)({ storage });
+const storage = multer_1.default.memoryStorage();
+exports.upload = (0, multer_1.default)({ storage });
 // Apply authentication to all routes
 router.use(auth_1.requireAuth);
 // Create outgoing letter (with file upload)
-router.post('/', upload.single('image'), outgoingController_1.OutgoingController.createOutgoing);
+router.post('/', exports.upload.single('image'), outgoingController_1.OutgoingController.createOutgoing);
 // Get all outgoing letters
 router.get('/', outgoingController_1.OutgoingController.getAll);
 // Get courier tracking records
@@ -34,7 +27,7 @@ router.get('/qr/:qrCode', outgoingController_1.OutgoingController.getByQRCode);
 // Get outgoing letter by ID
 router.get('/:id', outgoingController_1.OutgoingController.getOutgoingById);
 // Update outgoing letter (with file upload)
-router.put('/:id', upload.single('image'), outgoingController_1.OutgoingController.updateOutgoing);
+router.put('/:id', exports.upload.single('image'), outgoingController_1.OutgoingController.updateOutgoing);
 // Delete outgoing letter
 router.delete('/:id', outgoingController_1.OutgoingController.deleteOutgoing);
 // Update outgoing letter status

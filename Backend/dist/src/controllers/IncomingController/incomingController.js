@@ -7,9 +7,7 @@ exports.requireSuperAdmin = exports.IncomingController = exports.upload = void 0
 const incomingService_1 = require("../../services/IncomingService/incomingService");
 const incomingValidation_1 = require("../../validation/IncomingValidation/incomingValidation");
 const multer_1 = __importDefault(require("multer"));
-const path_1 = __importDefault(require("path"));
 const cloudinary_1 = __importDefault(require("../../lib/cloudinary"));
-const fs_1 = __importDefault(require("fs"));
 const prisma_1 = require("../../../generated/prisma");
 const prisma = new prisma_1.PrismaClient();
 // Role-based authorization middleware
@@ -27,14 +25,7 @@ const requireSuperAdmin = (req, res, next) => {
 };
 exports.requireSuperAdmin = requireSuperAdmin;
 // Multer config for image upload
-const storage = multer_1.default.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path_1.default.join(__dirname, '../../../uploads/incoming'));
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + '-' + file.originalname);
-    },
-});
+const storage = multer_1.default.memoryStorage();
 exports.upload = (0, multer_1.default)({ storage });
 class IncomingController {
     static async create(req, res, next) {
@@ -43,13 +34,16 @@ class IncomingController {
             const data = { ...req.body };
             // Only update image if a new file is uploaded
             if (mReq.file) {
-                // Upload to Cloudinary
-                const result = await cloudinary_1.default.uploader.upload(mReq.file.path, {
-                    folder: 'incoming_letters',
+                const result = await new Promise((resolve, reject) => {
+                    const stream = cloudinary_1.default.uploader.upload_stream({ folder: 'incoming_letters' }, // or 'outgoing_letters'
+                    (error, result) => {
+                        if (error)
+                            return reject(error);
+                        resolve(result);
+                    });
+                    stream.end(mReq.file.buffer); // non-null assertion
                 });
                 data.image = result.secure_url;
-                // Delete local file
-                fs_1.default.unlinkSync(mReq.file.path);
             }
             // If no new file, don't include image in the update data (preserve existing)
             const parsed = incomingValidation_1.incomingCreateSchema.safeParse(data);
@@ -117,12 +111,16 @@ class IncomingController {
             // Only update image if a new file is uploaded
             if (mReq.file) {
                 // Upload to Cloudinary
-                const result = await cloudinary_1.default.uploader.upload(mReq.file.path, {
-                    folder: 'incoming_letters',
+                const result = await new Promise((resolve, reject) => {
+                    const stream = cloudinary_1.default.uploader.upload_stream({ folder: 'incoming_letters' }, // or 'outgoing_letters'
+                    (error, result) => {
+                        if (error)
+                            return reject(error);
+                        resolve(result);
+                    });
+                    stream.end(req.file.buffer);
                 });
                 data.image = result.secure_url;
-                // Delete local file
-                fs_1.default.unlinkSync(mReq.file.path);
             }
             // If no new file, don't include image in the update data (preserve existing)
             const parsed = incomingValidation_1.incomingUpdateSchema.safeParse(data);
