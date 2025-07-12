@@ -149,10 +149,10 @@ export function AppSidebar({ activeTab, setActiveTab, userRole, isCollapsed, onT
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center gap-3 justify-center">
-          {/* <div className="flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0">
             <FileText className="h-8 w-8 text-blue-600" />
-          </div> */}
+          </div>
           {!isCollapsed && (
             <div className="min-w-0 flex-1">
               <h2 className="text-lg font-semibold text-gray-800 truncate">Ag Sindh</h2>
