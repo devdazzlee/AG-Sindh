@@ -45,14 +45,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
-                    <div className="flex items-center justify-center mb-4">
-                        <img src="/Logo.svg" alt="Logo" className="w-42 h-32"  />
-                        {/* <Image
-                            
-                            width={160}   // e.g. 160px wide
-                            height={64}   //  keeps the same aspect (160 × 64)
-                            className="object-contain"
-                        /> */}
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                        <FileText className="h-8 w-8 text-blue-600" />
+                        <span className="text-2xl font-bold text-gray-800">Ag Sindh</span>
                     </div>
                     <CardTitle>Login to Dashboard</CardTitle>
                     <CardDescription>Enter your credentials to access the system</CardDescription>
