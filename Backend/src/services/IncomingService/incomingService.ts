@@ -33,7 +33,6 @@ export class IncomingService {
       console.log('🔔 Creating notifications for incoming:', {
         incomingId: incoming.id,
         to: incoming.to,
-        departmentId: incoming.departmentId,
         departmentName: incoming.department?.name,
         creatorUserId
       });
@@ -46,30 +45,20 @@ export class IncomingService {
           include: { department: true }
         });
         creatorRole = creator?.role || null;
-        console.log('🔔 Creator info:', {
-          id: creator?.id,
-          role: creator?.role,
-          department: creator?.department?.name
-        });
       }
 
-      // Get all users
+      // Get all users in a single query
       const allUsers = await prisma.user.findMany({
         include: { department: true }
       });
 
-      console.log('🔔 All users found:', allUsers.map(u => ({
-        id: u.id,
-        username: u.username,
-        role: u.role,
-        department: u.department?.name
-      })));
+      // Prepare batch notification data
+      const notificationsToCreate: any[] = [];
 
-      // Create notifications for relevant users only (excluding the creator)
+      // Process users and prepare notification data
       for (const user of allUsers) {
         // Skip the creator
         if (creatorUserId && user.id === creatorUserId) {
-          console.log('🔔 Skipping creator:', user.username);
           continue;
         }
 
@@ -80,42 +69,45 @@ export class IncomingService {
           // Super admin gets notified about all incoming letters (except when they create it)
           shouldNotify = true;
           message = `New incoming letter created: ${incoming.subject || 'No subject'} for ${incoming.department?.name || 'Unknown Department'} (QR: ${incoming.qrCode})`;
-          console.log('🔔 Super admin will be notified:', user.username);
         } else if (user.role === Role.rd_department) {
           // RD department gets notified about all incoming letters (except when they create it)
           shouldNotify = true;
           message = `New incoming letter received: ${incoming.subject || 'No subject'} for ${incoming.department?.name || 'Unknown Department'} (QR: ${incoming.qrCode})`;
-          console.log('🔔 RD department will be notified:', user.username);
         } else if (user.role === Role.other_department && user.department) {
           // Other departments only get notified if the letter is for their department (except when they create it)
-          console.log('🔔 Checking department user:', {
-            username: user.username,
-            userDepartmentId: user.department.id,
-            incomingTo: incoming.to,
-            match: user.department.id === incoming.to
-          });
-          
           if (user.department.id === incoming.to) {
             shouldNotify = true;
             message = `New incoming letter received for your department: ${incoming.subject || 'No subject'} (QR: ${incoming.qrCode})`;
-            console.log('🔔 Department user will be notified:', user.username);
-          } else {
-            console.log('🔔 Department user will NOT be notified (wrong department):', user.username);
           }
         }
 
         if (shouldNotify) {
-          console.log('🔔 Creating notification for user:', user.username);
-          await NotificationService.createNotification({
+          notificationsToCreate.push({
             message,
             incomingId: incoming.id,
-            departmentId: incoming.to, // Use incoming.to as departmentId
-            userId: user.id, // Add user ID to create individual notifications
+            departmentId: incoming.to,
+            userId: user.id,
             type: 'incoming'
           });
-          console.log('🔔 Notification created successfully for:', user.username);
         }
       }
+
+      // Create all notifications in a single batch operation
+      if (notificationsToCreate.length > 0) {
+        await prisma.notification.createMany({
+          data: notificationsToCreate.map(notification => ({
+            message: notification.message,
+            incomingId: notification.incomingId,
+            departmentId: notification.departmentId,
+            userId: notification.userId,
+            isRead: false,
+            createdAt: new Date()
+          }))
+        });
+        
+        console.log(`🔔 Successfully created ${notificationsToCreate.length} notifications in batch`);
+      }
+
     } catch (error) {
       console.log('❌ Error creating notifications:', error);
       // Don't throw error to prevent incoming creation from failing
@@ -199,12 +191,15 @@ export class IncomingService {
         'ARCHIVED': 'Letter has been archived'
       };
 
-      // Get all users
+      // Get all users in a single query
       const allUsers = await prisma.user.findMany({
         include: { department: true }
       });
 
-      // Create notifications for relevant users only
+      // Prepare batch notification data
+      const notificationsToCreate: any[] = [];
+
+      // Process users and prepare notification data
       for (const user of allUsers) {
         let shouldNotify = false;
         let message = '';
@@ -226,14 +221,28 @@ export class IncomingService {
         }
 
         if (shouldNotify) {
-          await NotificationService.createNotification({
+          notificationsToCreate.push({
             message,
             incomingId: incoming.id,
-            departmentId: incoming.to, // Use incoming.to as departmentId
-            userId: user.id, // Add user ID to create individual notifications
+            departmentId: incoming.to,
+            userId: user.id,
             type: 'status_update'
           });
         }
+      }
+
+      // Create all notifications in a single batch operation
+      if (notificationsToCreate.length > 0) {
+        await prisma.notification.createMany({
+          data: notificationsToCreate.map(notification => ({
+            message: notification.message,
+            incomingId: notification.incomingId,
+            departmentId: notification.departmentId,
+            userId: notification.userId,
+            isRead: false,
+            createdAt: new Date()
+          }))
+        });
       }
     } catch (error) {
       console.log('Error creating status update notification:', error);

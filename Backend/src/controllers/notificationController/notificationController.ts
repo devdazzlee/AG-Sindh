@@ -4,13 +4,9 @@ import { AuthenticatedRequest } from '../../types';
 
 export class NotificationController {
   static async getNotifications(req: AuthenticatedRequest, res: Response) {
-    console.log('📧 getNotifications called');
-    console.log('📧 User:', req.user);
-    
     try {
       const userId = req.user?.id;
       if (!userId) {
-        console.log('❌ No user ID found in request');
         return res.status(401).json({ error: 'User not authenticated' });
       }
 
@@ -18,10 +14,8 @@ export class NotificationController {
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = (page - 1) * limit;
 
-      console.log('📧 Fetching notifications for user:', userId);
       const result = await NotificationService.getNotificationsByUser(userId, limit, offset);
       
-      console.log('📧 Notifications fetched successfully');
       res.json({
         success: true,
         data: result
@@ -36,20 +30,14 @@ export class NotificationController {
   }
 
   static async getUnreadCount(req: AuthenticatedRequest, res: Response) {
-    console.log('📧 getUnreadCount called');
-    console.log('📧 User:', req.user);
-    
     try {
       const userId = req.user?.id;
       if (!userId) {
-        console.log('❌ No user ID found in request');
         return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      console.log('📧 Fetching unread count for user:', userId);
       const count = await NotificationService.getUnreadCount(userId);
       
-      console.log('📧 Unread count fetched successfully:', count);
       res.json({
         success: true,
         data: { unreadCount: count }

@@ -34,10 +34,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchUnreadCount()
     
-    // Set up polling for new notifications every 30 seconds
+    // Set up polling for new notifications every 60 seconds (increased from 30)
     const interval = setInterval(() => {
       fetchUnreadCount()
-    }, 30000)
+    }, 60000)
 
     return () => clearInterval(interval)
   }, [])

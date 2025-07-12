@@ -49,9 +49,6 @@ export class NotificationService {
     // Get notifications specifically for this user
     const whereClause = { userId: userId };
 
-    console.log(`🔍 User ${user.username} (${user.role}) - department: ${user.department?.name || 'none'}`);
-    console.log(`🔍 Where clause:`, whereClause);
-
     const [notifications, total] = await Promise.all([
       prisma.notification.findMany({
         where: whereClause,
@@ -75,8 +72,6 @@ export class NotificationService {
       }),
       prisma.notification.count({ where: whereClause })
     ]);
-
-    console.log(`🔍 Found ${notifications.length} notifications for user ${user.username}`);
 
     return {
       notifications,

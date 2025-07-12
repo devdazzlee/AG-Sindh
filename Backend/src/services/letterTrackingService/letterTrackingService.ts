@@ -171,17 +171,8 @@ export class LetterTrackingService {
           },
         })
 
-        // Create notification for status update
-        if (updatedRecord && updatedRecord.department) {
-          await prisma.notification.create({
-            data: {
-              message: `Incoming letter ${updatedRecord.qrCode} status updated to ${mappedStatus}`,
-              incomingId: updatedRecord.id,
-              departmentId: updatedRecord.department.id,
-              userId: userId,
-            },
-          })
-        }
+        // Create batch notification for status update
+        await this.createBatchStatusNotification(updatedRecord, 'incoming', mappedStatus, userId)
       } else {
         const mappedStatus = this.mapStatusToOutgoing(newStatus)
         const updateData: any = {
@@ -203,17 +194,8 @@ export class LetterTrackingService {
           },
         })
 
-        // Create notification for status update
-        if (updatedRecord.department) {
-          await prisma.notification.create({
-            data: {
-              message: `Outgoing letter ${updatedRecord.qrCode} status updated to ${mappedStatus}`,
-              outgoingId: updatedRecord.id,
-              departmentId: updatedRecord.department.id,
-              userId: userId,
-            },
-          })
-        }
+        // Create batch notification for status update
+        await this.createBatchStatusNotification(updatedRecord, 'outgoing', mappedStatus, userId)
       }
 
       return updatedRecord
@@ -383,6 +365,63 @@ export class LetterTrackingService {
         return "RETURNED"
       default:
         return status.toUpperCase()
+    }
+  }
+
+  private async createBatchStatusNotification(
+    record: any,
+    recordType: 'incoming' | 'outgoing',
+    newStatus: string,
+    userId?: string
+  ) {
+    try {
+      // Get all users in a single query
+      const allUsers = await prisma.user.findMany({
+        include: { department: true }
+      })
+
+      // Prepare batch notification data
+      const notificationsToCreate: any[] = []
+
+      // Process users and prepare notification data
+      for (const user of allUsers) {
+        let shouldNotify = false
+        let message = ''
+
+        if (user.role === 'super_admin') {
+          shouldNotify = true
+          message = `${recordType === 'incoming' ? 'Incoming' : 'Outgoing'} letter ${record.qrCode} status updated to ${newStatus}`
+        } else if (user.role === 'rd_department') {
+          shouldNotify = true
+          message = `${recordType === 'incoming' ? 'Incoming' : 'Outgoing'} letter ${record.qrCode} status updated to ${newStatus}`
+        } else if (user.role === 'other_department' && user.department) {
+          const departmentField = recordType === 'incoming' ? record.to : record.from
+          if (user.department.id === departmentField) {
+            shouldNotify = true
+            message = `${recordType === 'incoming' ? 'Incoming' : 'Outgoing'} letter ${record.qrCode} status updated to ${newStatus}`
+          }
+        }
+
+        if (shouldNotify) {
+          notificationsToCreate.push({
+            message,
+            [recordType === 'incoming' ? 'incomingId' : 'outgoingId']: record.id,
+            departmentId: recordType === 'incoming' ? record.to : record.from,
+            userId: user.id,
+            isRead: false,
+            createdAt: new Date()
+          })
+        }
+      }
+
+      // Create all notifications in a single batch operation
+      if (notificationsToCreate.length > 0) {
+        await prisma.notification.createMany({
+          data: notificationsToCreate
+        })
+      }
+    } catch (error) {
+      console.error('Failed to create batch status notification:', error)
     }
   }
 } 

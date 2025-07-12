@@ -6,7 +6,7 @@ import path from 'path';
 
 const router = Router();
 
-// Configure multer for file uploads
+// Configure multer for temporary file storage (will be uploaded to Cloudinary and deleted)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/outgoing/');

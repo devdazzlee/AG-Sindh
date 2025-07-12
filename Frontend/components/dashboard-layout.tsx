@@ -20,8 +20,8 @@ export function DashboardLayout({ userRole, onLogout }: DashboardLayoutProps) {
 
   useEffect(() => {
     fetchUnreadNotifications()
-    // Set up interval to fetch unread notifications every 30 seconds
-    const interval = setInterval(fetchUnreadNotifications, 30000)
+    // Set up interval to fetch unread notifications every 60 seconds (increased from 30)
+    const interval = setInterval(fetchUnreadNotifications, 60000)
     return () => clearInterval(interval)
   }, [])
 

@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { OutgoingService } from '../../services/outgoingService/outgoingService';
 import { validateOutgoingData } from '../../validation/outgoingValidation/outgoingValidation';
 import { AuthenticatedRequest } from '../../middlewares/auth';
+import cloudinary from '../../lib/cloudinary';
+import fs from 'fs';
 
 export class OutgoingController {
   static async createOutgoing(req: AuthenticatedRequest, res: Response) {
@@ -15,7 +17,46 @@ export class OutgoingController {
       }
 
       const { from, to, priority, subject, qrCode } = req.body;
-      const image = req.file;
+      let image = req.file;
+
+      // If file is uploaded, upload to Cloudinary and delete local file
+      if (image) {
+        const originalPath = image.path; // Store original path before modifying
+        console.log('📁 Processing file upload:', {
+          originalPath,
+          fileSize: image.size,
+          mimetype: image.mimetype
+        });
+
+        try {
+          console.log('☁️ Uploading to Cloudinary...');
+          const result = await cloudinary.uploader.upload(image.path, {
+            folder: 'outgoing_letters',
+          });
+          console.log('✅ Cloudinary upload successful:', result.secure_url);
+          
+          // Replace the file object with Cloudinary URL
+          image = { ...image, path: result.secure_url } as any;
+          
+          // Delete local file using original path
+          console.log('🗑️ Deleting local file:', originalPath);
+          if (fs.existsSync(originalPath)) {
+            fs.unlinkSync(originalPath);
+            console.log('✅ Local file deleted successfully');
+          } else {
+            console.log('⚠️ Local file not found for deletion');
+          }
+        } catch (uploadError) {
+          console.error('❌ Cloudinary upload failed:', uploadError);
+          // If Cloudinary upload fails, delete local file and return error
+          if (fs.existsSync(originalPath)) {
+            console.log('🗑️ Deleting local file after failed upload:', originalPath);
+            fs.unlinkSync(originalPath);
+            console.log('✅ Local file deleted after failed upload');
+          }
+          throw new Error(`Failed to upload image to Cloudinary: ${uploadError}`);
+        }
+      }
 
       const outgoing = await OutgoingService.createOutgoing({
         from,
@@ -32,6 +73,7 @@ export class OutgoingController {
         data: outgoing,
       });
     } catch (error: any) {
+      console.error('❌ Error in createOutgoing:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to create outgoing letter',
@@ -103,7 +145,46 @@ export class OutgoingController {
     try {
       const { id } = req.params;
       const { from, to, priority, subject } = req.body;
-      const image = req.file;
+      let image = req.file;
+
+      // If file is uploaded, upload to Cloudinary and delete local file
+      if (image) {
+        const originalPath = image.path; // Store original path before modifying
+        console.log('📁 Processing file update:', {
+          originalPath,
+          fileSize: image.size,
+          mimetype: image.mimetype
+        });
+
+        try {
+          console.log('☁️ Uploading to Cloudinary...');
+          const result = await cloudinary.uploader.upload(image.path, {
+            folder: 'outgoing_letters',
+          });
+          console.log('✅ Cloudinary upload successful:', result.secure_url);
+          
+          // Replace the file object with Cloudinary URL
+          image = { ...image, path: result.secure_url } as any;
+          
+          // Delete local file using original path
+          console.log('🗑️ Deleting local file:', originalPath);
+          if (fs.existsSync(originalPath)) {
+            fs.unlinkSync(originalPath);
+            console.log('✅ Local file deleted successfully');
+          } else {
+            console.log('⚠️ Local file not found for deletion');
+          }
+        } catch (uploadError) {
+          console.error('❌ Cloudinary upload failed:', uploadError);
+          // If Cloudinary upload fails, delete local file and return error
+          if (fs.existsSync(originalPath)) {
+            console.log('🗑️ Deleting local file after failed upload:', originalPath);
+            fs.unlinkSync(originalPath);
+            console.log('✅ Local file deleted after failed upload');
+          }
+          throw new Error(`Failed to upload image to Cloudinary: ${uploadError}`);
+        }
+      }
 
       const updateData: any = {
         from,
@@ -124,6 +205,7 @@ export class OutgoingController {
         data: outgoing,
       });
     } catch (error: any) {
+      console.error('❌ Error in updateOutgoing:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to update outgoing letter',
@@ -199,16 +281,13 @@ export class OutgoingController {
 
       res.status(200).json({
         success: true,
-        message: 'Department outgoing letters fetched successfully',
-        data: {
-          records: outgoing,
-          total: outgoing.length,
-        },
+        message: 'Outgoing letters fetched successfully',
+        data: outgoing,
       });
     } catch (error: any) {
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch department outgoing letters',
+        message: 'Failed to fetch outgoing letters',
         error: error.message,
       });
     }
@@ -253,19 +332,19 @@ export class OutgoingController {
     } catch (error: any) {
       res.status(404).json({
         success: false,
-        message: 'Invalid QR code or outgoing letter not found',
+        message: 'Outgoing letter not found',
         error: error.message,
       });
     }
   }
 }
 
-// Super admin middleware
+// Role-based authorization middleware
 export function requireSuperAdmin(req: AuthenticatedRequest, res: Response, next: Function) {
-  if (req.user?.role !== 'super_admin') {
-    return res.status(403).json({ 
-      success: false, 
-      message: 'Forbidden: Only super admin can perform this action.' 
+  if (!req.user || req.user.role !== 'super_admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Super admin privileges required.',
     });
   }
   next();

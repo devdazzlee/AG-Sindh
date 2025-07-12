@@ -11,7 +11,7 @@ export interface CreateOutgoingData {
   priority: string;
   subject?: string;
   qrCode: string;
-  image?: Express.Multer.File;
+  image?: Express.Multer.File | string; // Can be file object or Cloudinary URL
 }
 
 export interface UpdateOutgoingData {
@@ -26,11 +26,17 @@ export class OutgoingService {
       let imageUrl: string | undefined;
 
       if (data.image) {
-        const uploadResult = await cloudinary.uploader.upload(data.image.path, {
-          folder: 'outgoing',
-          resource_type: 'auto',
-        });
-        imageUrl = uploadResult.secure_url;
+        // If it's already a Cloudinary URL (string), use it directly
+        if (typeof data.image === 'string') {
+          imageUrl = data.image;
+        } else {
+          // If it's a file object, upload to Cloudinary
+          const uploadResult = await cloudinary.uploader.upload(data.image.path, {
+            folder: 'outgoing',
+            resource_type: 'auto',
+          });
+          imageUrl = uploadResult.secure_url;
+        }
       }
 
       const outgoing = await prisma.outgoing.create({
@@ -75,30 +81,20 @@ export class OutgoingService {
           include: { department: true }
         });
         creatorRole = creator?.role || null;
-        console.log('🔔 Creator info:', {
-          id: creator?.id,
-          role: creator?.role,
-          department: creator?.department?.name
-        });
       }
 
-      // Get all users
+      // Get all users in a single query
       const allUsers = await prisma.user.findMany({
         include: { department: true }
       });
 
-      console.log('🔔 All users found:', allUsers.map(u => ({
-        id: u.id,
-        username: u.username,
-        role: u.role,
-        department: u.department?.name
-      })));
+      // Prepare batch notification data
+      const notificationsToCreate: any[] = [];
 
-      // Create notifications for relevant users only (excluding the creator)
+      // Process users and prepare notification data
       for (const user of allUsers) {
         // Skip the creator
         if (creatorUserId && user.id === creatorUserId) {
-          console.log('🔔 Skipping creator:', user.username);
           continue;
         }
 
@@ -109,42 +105,45 @@ export class OutgoingService {
           // Super admin gets notified about all outgoing letters (except when they create it)
           shouldNotify = true;
           message = `New outgoing letter created: ${outgoing.subject || 'No subject'} from ${outgoing.department?.name || 'Unknown Department'} to ${outgoing.to} (QR: ${outgoing.qrCode})`;
-          console.log('🔔 Super admin will be notified:', user.username);
         } else if (user.role === Role.rd_department) {
           // RD department gets notified about all outgoing letters (except when they create it)
           shouldNotify = true;
           message = `New outgoing letter dispatched: ${outgoing.subject || 'No subject'} from ${outgoing.department?.name || 'Unknown Department'} to ${outgoing.to} (QR: ${outgoing.qrCode})`;
-          console.log('🔔 RD department will be notified:', user.username);
         } else if (user.role === Role.other_department && user.department) {
           // Other departments only get notified if the letter is from their department (except when they create it)
-          console.log('🔔 Checking department user:', {
-            username: user.username,
-            userDepartmentId: user.department.id,
-            outgoingFrom: outgoing.from,
-            match: user.department.id === outgoing.from
-          });
-          
           if (user.department.id === outgoing.from) {
             shouldNotify = true;
             message = `New outgoing letter created from your department: ${outgoing.subject || 'No subject'} to ${outgoing.to} (QR: ${outgoing.qrCode})`;
-            console.log('🔔 Department user will be notified:', user.username);
-          } else {
-            console.log('🔔 Department user will NOT be notified (wrong department):', user.username);
           }
         }
 
         if (shouldNotify) {
-          console.log('🔔 Creating notification for user:', user.username);
-          await NotificationService.createNotification({
+          notificationsToCreate.push({
             message,
             outgoingId: outgoing.id,
-            departmentId: outgoing.from, // Use outgoing.from as departmentId
-            userId: user.id, // Add user ID to create individual notifications
+            departmentId: outgoing.from,
+            userId: user.id,
             type: 'outgoing'
           });
-          console.log('🔔 Notification created successfully for:', user.username);
         }
       }
+
+      // Create all notifications in a single batch operation
+      if (notificationsToCreate.length > 0) {
+        await prisma.notification.createMany({
+          data: notificationsToCreate.map(notification => ({
+            message: notification.message,
+            outgoingId: notification.outgoingId,
+            departmentId: notification.departmentId,
+            userId: notification.userId,
+            isRead: false,
+            createdAt: new Date()
+          }))
+        });
+        
+        console.log(`🔔 Successfully created ${notificationsToCreate.length} notifications in batch`);
+      }
+
     } catch (error) {
       console.log('❌ Error creating notifications:', error);
       // Don't throw error to prevent outgoing creation from failing
@@ -198,39 +197,25 @@ export class OutgoingService {
     }
   }
 
-  static async getOutgoingByQR(qrCode: string) {
-    try {
-      const outgoing = await prisma.outgoing.findUnique({
-        where: { qrCode },
-        include: {
-          department: true,
-        },
-      });
-
-      if (!outgoing) {
-        throw new Error('Outgoing letter not found');
-      }
-
-      return outgoing;
-    } catch (error) {
-      throw new Error(`Failed to fetch outgoing letter: ${error}`);
-    }
-  }
-
   static async updateOutgoing(id: string, data: any) {
     try {
-      if (!id) {
-        throw new Error('ID is required for update');
-      }
-
       let imageUrl: string | undefined;
 
       if (data.image) {
-        const uploadResult = await cloudinary.uploader.upload(data.image.path, {
-          folder: 'outgoing',
-          resource_type: 'auto',
-        });
-        imageUrl = uploadResult.secure_url;
+        // If it's already a Cloudinary URL (string), use it directly
+        if (typeof data.image === 'string') {
+          imageUrl = data.image;
+        } else if (data.image.path && data.image.path.startsWith('http')) {
+          // If it's a Cloudinary URL in the path property
+          imageUrl = data.image.path;
+        } else {
+          // If it's a file object, upload to Cloudinary
+          const uploadResult = await cloudinary.uploader.upload(data.image.path, {
+            folder: 'outgoing',
+            resource_type: 'auto',
+          });
+          imageUrl = uploadResult.secure_url;
+        }
       }
 
       const updateData: any = {
@@ -260,83 +245,109 @@ export class OutgoingService {
 
   static async updateOutgoingStatus(id: string, data: UpdateOutgoingData) {
     try {
-      const updateData: any = {
-        status: data.status,
-      };
-
-      if (data.status === 'DISPATCHED' && !data.dispatchedDate) {
-        updateData.dispatchedDate = new Date();
-      }
-
-      if (data.status === 'DELIVERED' && !data.deliveredDate) {
-        updateData.deliveredDate = new Date();
-      }
-
-      if (data.dispatchedDate) {
-        updateData.dispatchedDate = data.dispatchedDate;
-      }
-
-      if (data.deliveredDate) {
-        updateData.deliveredDate = data.deliveredDate;
-      }
-
       const outgoing = await prisma.outgoing.update({
         where: { id },
-        data: updateData,
+        data: {
+          status: data.status,
+          dispatchedDate: data.dispatchedDate,
+          deliveredDate: data.deliveredDate,
+        },
         include: {
           department: true,
         },
       });
 
-      // Create notification for status change
-      if (data.status) {
-        await this.createStatusUpdateNotification(outgoing, data.status);
-      }
+      // Create notification for status update
+      await this.createStatusUpdateNotification(outgoing, data.status || 'UNKNOWN');
 
       return outgoing;
     } catch (error) {
-      throw new Error(`Failed to update outgoing letter: ${error}`);
+      throw new Error(`Failed to update outgoing letter status: ${error}`);
     }
   }
 
   static async createStatusUpdateNotification(outgoing: any, newStatus: string) {
     try {
       const statusMessages = {
-        'DISPATCHED': 'Letter has been dispatched',
-        'DELIVERED': 'Letter has been delivered',
-        'RETURNED': 'Letter has been returned',
+        'PENDING_DISPATCH': 'pending dispatch',
+        'DISPATCHED': 'dispatched',
+        'DELIVERED': 'delivered',
+        'RETURNED': 'returned',
       };
 
-      if (statusMessages[newStatus as keyof typeof statusMessages]) {
-        await NotificationService.createNotification({
-          message: `Outgoing letter ${outgoing.qrCode}: ${statusMessages[newStatus as keyof typeof statusMessages]}`,
-          outgoingId: outgoing.id,
-          departmentId: outgoing.from,
-          type: 'outgoing'
+      // Get all users in a single query
+      const allUsers = await prisma.user.findMany({
+        include: { department: true }
+      });
+
+      // Prepare batch notification data
+      const notificationsToCreate: any[] = [];
+
+      // Process users and prepare notification data
+      for (const user of allUsers) {
+        let shouldNotify = false;
+        let message = '';
+
+        if (user.role === Role.super_admin) {
+          // Super admin gets notified about all status updates
+          shouldNotify = true;
+          message = `Outgoing letter ${outgoing.qrCode} has been ${statusMessages[newStatus as keyof typeof statusMessages] || newStatus.toLowerCase()}`;
+        } else if (user.role === Role.rd_department) {
+          // RD department gets notified about all status updates
+          shouldNotify = true;
+          message = `Outgoing letter ${outgoing.qrCode} has been ${statusMessages[newStatus as keyof typeof statusMessages] || newStatus.toLowerCase()}`;
+        } else if (user.role === Role.other_department && user.department) {
+          // Other departments only get notified if the letter is from their department
+          if (user.department.id === outgoing.from) {
+            shouldNotify = true;
+            message = `Outgoing letter ${outgoing.qrCode} has been ${statusMessages[newStatus as keyof typeof statusMessages] || newStatus.toLowerCase()}`;
+          }
+        }
+
+        if (shouldNotify) {
+          notificationsToCreate.push({
+            message,
+            outgoingId: outgoing.id,
+            departmentId: outgoing.from,
+            userId: user.id,
+            type: 'status_update'
+          });
+        }
+      }
+
+      // Create all notifications in a single batch operation
+      if (notificationsToCreate.length > 0) {
+        await prisma.notification.createMany({
+          data: notificationsToCreate.map(notification => ({
+            message: notification.message,
+            outgoingId: notification.outgoingId,
+            departmentId: notification.departmentId,
+            userId: notification.userId,
+            isRead: false,
+            createdAt: new Date()
+          }))
         });
       }
     } catch (error) {
-      console.log('❌ Error creating status update notification:', error);
-      // Don't throw error to prevent status update from failing
+      console.error('Failed to create status update notification:', error);
     }
   }
 
   static async deleteOutgoing(id: string) {
     try {
-      // First check if the record exists
-      const existingRecord = await prisma.outgoing.findUnique({
-        where: { id }
+      const outgoing = await prisma.outgoing.findUnique({
+        where: { id },
+        include: {
+          department: true,
+        },
       });
 
-      if (!existingRecord) {
-        throw new Error('Record not found');
+      if (!outgoing) {
+        throw new Error('Outgoing letter not found');
       }
 
-      // Delete notifications first (if any)
-      await prisma.notification.deleteMany({ where: { outgoingId: id } });
-      
-      // Delete outgoing record
-      const outgoing = await prisma.outgoing.delete({
+      // Delete from database
+      await prisma.outgoing.delete({
         where: { id },
       });
 
@@ -349,7 +360,9 @@ export class OutgoingService {
   static async getOutgoingByDepartment(departmentId: string) {
     try {
       const outgoing = await prisma.outgoing.findMany({
-        where: { from: departmentId },
+        where: {
+          from: departmentId,
+        },
         include: {
           department: true,
         },
@@ -364,18 +377,44 @@ export class OutgoingService {
     }
   }
 
-  static async getOutgoingStats() {
+  static async getOutgoingByQR(qrCode: string) {
     try {
-      const stats = await prisma.outgoing.groupBy({
-        by: ['status'],
-        _count: {
-          status: true,
+      const outgoing = await prisma.outgoing.findUnique({
+        where: { qrCode },
+        include: {
+          department: true,
         },
       });
 
-      return stats;
+      if (!outgoing) {
+        throw new Error('Outgoing letter not found');
+      }
+
+      return outgoing;
     } catch (error) {
-      throw new Error(`Failed to fetch outgoing stats: ${error}`);
+      throw new Error(`Failed to fetch outgoing letter by QR: ${error}`);
+    }
+  }
+
+  static async getOutgoingStats() {
+    try {
+      const [total, pending, dispatched, delivered, returned] = await Promise.all([
+        prisma.outgoing.count(),
+        prisma.outgoing.count({ where: { status: 'PENDING_DISPATCH' } }),
+        prisma.outgoing.count({ where: { status: 'DISPATCHED' } }),
+        prisma.outgoing.count({ where: { status: 'DELIVERED' } }),
+        prisma.outgoing.count({ where: { status: 'RETURNED' } }),
+      ]);
+
+      return {
+        total,
+        pending,
+        dispatched,
+        delivered,
+        returned,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch outgoing statistics: ${error}`);
     }
   }
 } 
