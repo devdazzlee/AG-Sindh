@@ -19,7 +19,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const response = await apiClient.get("/notifications/unread-count")
       setUnreadCount(response.data.data.unreadCount || 0)
     } catch (error: any) {
-      console.error("Failed to fetch unread count:", error)
+      console.log("Failed to fetch unread count:", error)
     }
   }
 

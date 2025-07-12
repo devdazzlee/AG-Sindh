@@ -39,7 +39,7 @@ export class AuthService {
       // Clear tokens from localStorage
       TokenManager.clearTokens();
     } catch (error) {
-      console.error('Logout error:', error);
+      console.log('Logout error:', error);
     }
   }
 

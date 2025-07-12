@@ -46,7 +46,7 @@ export function CameraModal({ isOpen, onClose, onCapture, title = "Capture Image
         videoRef.current.play()
       }
     } catch (err: any) {
-      console.error("Camera error:", err)
+      console.log("Camera error:", err)
       setError("Camera access failed. Please allow camera permission.")
     }
   }

@@ -83,9 +83,8 @@ apiClient.interceptors.response.use(
       try {
         const refreshToken = TokenManager.getRefreshToken();
         if (!refreshToken) {
-          // No refresh token, redirect to login
+          // No refresh token, clear tokens and let the app handle the redirect
           TokenManager.clearTokens();
-          window.location.href = '/';
           return Promise.reject(error);
         }
 
@@ -103,9 +102,8 @@ apiClient.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh failed, clear tokens and redirect to login
+        // Refresh failed, clear tokens and let the app handle the redirect
         TokenManager.clearTokens();
-        window.location.href = '/';
         return Promise.reject(refreshError);
       }
     }

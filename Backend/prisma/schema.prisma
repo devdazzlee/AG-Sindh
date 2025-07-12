@@ -44,6 +44,7 @@ model Department {
   userId    String?  @unique
   // Add relations for incoming and notifications
   incomingLetters Incoming[] @relation("DepartmentIncoming")
+  outgoingLetters Outgoing[] @relation("DepartmentOutgoing")
   notifications Notification[]
 }
 
@@ -67,6 +68,13 @@ enum IncomingStatus {
   ARCHIVED
 }
 
+enum OutgoingStatus {
+  PENDING_DISPATCH
+  DISPATCHED
+  DELIVERED
+  RETURNED
+}
+
 model Incoming {
   id            String         @id @default(uuid())
   image         String?        // URL or path to uploaded image
@@ -84,11 +92,29 @@ model Incoming {
   notifications Notification[]
 }
 
+model Outgoing {
+  id            String         @id @default(uuid())
+  image         String?        // URL or path to uploaded image
+  from          String         // department id (relation below)
+  to            String
+  priority      String
+  subject       String?
+  qrCode        String         @unique
+  status        OutgoingStatus @default(PENDING_DISPATCH)
+  createdAt     DateTime       @default(now())
+  dispatchedDate DateTime?
+  deliveredDate DateTime?
+  department    Department     @relation("DepartmentOutgoing", fields: [from], references: [id])
+  notifications Notification[]
+}
+
 model Notification {
   id          String   @id @default(uuid())
   message     String
-  incomingId  String
-  incoming    Incoming @relation(fields: [incomingId], references: [id])
+  incomingId  String?
+  incoming    Incoming? @relation(fields: [incomingId], references: [id])
+  outgoingId  String?
+  outgoing    Outgoing? @relation(fields: [outgoingId], references: [id])
   department  Department? @relation(fields: [departmentId], references: [id])
   departmentId String?
   user        User?    @relation(fields: [userId], references: [id])

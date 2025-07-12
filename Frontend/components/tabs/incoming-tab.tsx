@@ -14,7 +14,6 @@ import { Badge } from "@/components/ui/badge"
 import { CameraModal } from "@/components/camera-modal"
 import { useToast } from "@/hooks/use-toast"
 import { DatePicker } from "@/components/date-picker"
-import { QRGenerator } from "@/components/qr-generator"
 import { TimePicker } from "@/components/time-picker"
 import apiClient from "@/lib/api-client"
 
@@ -235,6 +234,129 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
       })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleGenerateQRAndSave = async () => {
+    if (!formData.from || !formData.to || !formData.priority) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsGeneratingQR(true)
+    try {
+      // Generate QR code
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(uniqueQR)}`
+      
+      // Create image element to load QR code
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve
+        img.onerror = reject
+        img.src = qrUrl
+      })
+
+      // Create canvas and draw QR code
+      const canvas = document.createElement("canvas")
+      canvas.width = 200
+      canvas.height = 200
+      const ctx = canvas.getContext("2d")
+
+      if (ctx) {
+        ctx.fillStyle = "#FFFFFF"
+        ctx.fillRect(0, 0, 200, 200)
+        ctx.drawImage(img, 0, 0, 200, 200)
+
+        const qrDataUrl = canvas.toDataURL("image/png")
+        setQrData(qrDataUrl)
+
+        // Print QR code automatically
+        const printWindow = window.open('', '_blank')
+        if (printWindow) {
+          printWindow.document.write(`
+            <html>
+              <head>
+                <title>QR Code - ${uniqueQR}</title>
+                <style>
+                  body { 
+                    margin: 0; 
+                    padding: 20px; 
+                    font-family: Arial, sans-serif; 
+                    text-align: center;
+                  }
+                  .qr-container {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 10px;
+                  }
+                  .qr-code {
+                    border: 1px solid #ccc;
+                    padding: 10px;
+                  }
+                  .qr-info {
+                    margin-top: 10px;
+                    font-size: 12px;
+                  }
+                  @media print {
+                    body { margin: 0; }
+                    .qr-container { page-break-inside: avoid; }
+                  }
+                </style>
+                <script>
+                  window.onload = function() {
+                    setTimeout(function() {
+                      window.print();
+                      setTimeout(function() {
+                        window.close();
+                      }, 1000);
+                    }, 500);
+                  };
+                </script>
+              </head>
+              <body>
+                <div class="qr-container">
+                  <h3>Incoming Letter QR Code</h3>
+                  <div class="qr-code">
+                    <img src="${qrDataUrl}" alt="QR Code" style="width: 150px; height: 150px;" />
+                  </div>
+                  <div class="qr-info">
+                    <p><strong>QR Code:</strong> ${uniqueQR}</p>
+                    <p><strong>From:</strong> ${formData.from}</p>
+                    <p><strong>To:</strong> ${departments.find(d => d.id === formData.to)?.name || formData.to}</p>
+                    <p><strong>Priority:</strong> ${formData.priority}</p>
+                    <p><strong>Subject:</strong> ${formData.subject || 'N/A'}</p>
+                    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+                  </div>
+                </div>
+              </body>
+            </html>
+          `)
+          printWindow.document.close()
+        }
+
+        toast({
+          title: "QR Code Generated",
+          description: "QR code has been generated and printed successfully.",
+        })
+
+        // Now save the letter
+        await handleSubmit()
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate QR code",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGeneratingQR(false)
     }
   }
 
@@ -478,28 +600,20 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
             </div>
 
             <div className="pt-4 border-t">
-              <QRGenerator
-                data={uniqueQR}
-                onGenerated={(qr) => setQrData(qr)}
-              />
-            </div>
-
-            <div className="flex gap-2 pt-4 border-t">
               <Button 
-                onClick={handleSubmit} 
-                variant="outline" 
-                className="ml-auto bg-transparent"
-                disabled={isSubmitting}
+                onClick={handleGenerateQRAndSave} 
+                disabled={isGeneratingQR || isSubmitting}
+                className="w-full"
               >
-                {isSubmitting ? (
+                {isGeneratingQR || isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Saving...
+                    {isGeneratingQR ? "Generating QR..." : "Saving..."}
                   </>
                 ) : (
                   <>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Save Letter
+                    <QrCode className="h-4 w-4 mr-2" />
+                    Generate QR & Save Letter
                   </>
                 )}
               </Button>
@@ -537,19 +651,23 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
                   </div>
                 ) : (
                   incomingRecords.slice(0, 3).map((record) => (
-                    <div key={record.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center justify-between mb-2">
+                    <div key={record.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors space-y-2">
+                      <div className="flex items-center justify-between">
                         <span className="font-mono text-sm font-medium">{record.qrCode}</span>
                         <Badge variant={getPriorityColor(record.priority)}>
                           {record.priority}
                         </Badge>
                       </div>
-                      <p className="font-medium text-gray-900 mb-1">{record.subject || 'No subject'}</p>
-                      <p className="text-sm text-gray-600 mb-2">From: {record.from}</p>
-                      <p className="text-sm text-gray-600 mb-2">
+                      <p className="font-medium text-gray-900 truncate" title={record.subject || 'No subject'}>
+                        {record.subject || 'No subject'}
+                      </p>
+                      <p className="text-sm text-gray-600 truncate" title={record.from}>
+                        From: {record.from}
+                      </p>
+                      <p className="text-sm text-gray-600 truncate" title={record.department?.name || 'Unknown Department'}>
                         To: {record.department?.name || 'Unknown Department'}
                       </p>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between pt-1">
                         <span className="text-xs text-gray-500">
                           {new Date(record.createdAt).toLocaleDateString()}
                         </span>

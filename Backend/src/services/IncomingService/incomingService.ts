@@ -117,7 +117,7 @@ export class IncomingService {
         }
       }
     } catch (error) {
-      console.error('❌ Error creating notifications:', error);
+      console.log('❌ Error creating notifications:', error);
       // Don't throw error to prevent incoming creation from failing
     }
   }
@@ -236,7 +236,7 @@ export class IncomingService {
         }
       }
     } catch (error) {
-      console.error('Error creating status update notification:', error);
+      console.log('Error creating status update notification:', error);
     }
   }
 } 

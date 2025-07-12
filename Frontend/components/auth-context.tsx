@@ -21,12 +21,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Check if user is already authenticated on app load
     const checkAuth = () => {
-      const isAuth = AuthService.isAuthenticated();
-      if (isAuth) {
-        const currentUser = AuthService.getCurrentUser();
-        setUser(currentUser);
+      try {
+        const isAuth = AuthService.isAuthenticated();
+        if (isAuth) {
+          const currentUser = AuthService.getCurrentUser();
+          setUser(currentUser);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.log('Auth check error:', error);
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     checkAuth();
@@ -51,8 +59,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await AuthService.logout();
       setUser(null);
+      // Force a small delay to ensure state is cleared before any redirects
+      await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
-      console.error('Logout error:', error);
+      console.log('Logout error:', error);
+      // Even if logout fails, clear the user state
+      setUser(null);
     }
   };
 

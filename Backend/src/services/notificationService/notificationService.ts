@@ -5,20 +5,27 @@ const prisma = new PrismaClient();
 export class NotificationService {
   static async createNotification(data: {
     message: string;
-    incomingId: string;
+    incomingId?: string;
+    outgoingId?: string;
     departmentId?: string | null;
     userId?: string | null;
-    type?: 'incoming' | 'status_update' | 'system';
+    type?: 'incoming' | 'outgoing' | 'status_update' | 'system';
   }) {
     return prisma.notification.create({
       data: {
         message: data.message,
-        incomingId: data.incomingId,
+        incomingId: data.incomingId || null,
+        outgoingId: data.outgoingId || null,
         departmentId: data.departmentId || null,
         userId: data.userId || null,
       },
       include: {
         incoming: {
+          include: {
+            department: true
+          }
+        },
+        outgoing: {
           include: {
             department: true
           }
@@ -50,6 +57,11 @@ export class NotificationService {
         where: whereClause,
         include: {
           incoming: {
+            include: {
+              department: true
+            }
+          },
+          outgoing: {
             include: {
               department: true
             }

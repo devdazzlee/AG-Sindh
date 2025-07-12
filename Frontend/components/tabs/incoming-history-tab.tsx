@@ -339,10 +339,20 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
                     {filteredHistory.map((record) => (
                       <TableRow key={record.id} className="hover:bg-gray-50">
                         <TableCell className="font-mono font-medium">{record.qrCode}</TableCell>
-                        <TableCell>{record.from}</TableCell>
-                        <TableCell>{record.department?.name || 'Unknown'}</TableCell>
-                        <TableCell className="max-w-[200px] truncate" title={record.subject}>
-                          {record.subject || 'No subject'}
+                        <TableCell className="max-w-[150px]">
+                          <div className="truncate" title={record.from}>
+                            {record.from}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[150px]">
+                          <div className="truncate" title={record.department?.name || 'Unknown'}>
+                            {record.department?.name || 'Unknown'}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[200px]">
+                          <div className="truncate" title={record.subject || 'No subject'}>
+                            {record.subject || 'No subject'}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant={getPriorityColor(record.priority)}>
@@ -474,6 +484,7 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
         onClose={() => setIsEditModalOpen(false)}
         record={selectedRecord}
         onSave={handleSaveEdit}
+        recordType="incoming"
       />
 
       {/* Delete Confirmation Dialog */}

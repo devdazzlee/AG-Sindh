@@ -30,7 +30,7 @@ export function DashboardLayout({ userRole, onLogout }: DashboardLayoutProps) {
       const response = await apiClient.get("/notifications/unread-count")
       setUnreadNotifications(response.data.data.unreadCount || 0)
     } catch (error) {
-      console.error("Failed to fetch unread notifications:", error)
+      console.log("Failed to fetch unread notifications:", error)
     }
   }
 

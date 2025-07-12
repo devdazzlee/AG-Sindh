@@ -27,7 +27,7 @@ export class NotificationController {
         data: result
       });
     } catch (error: any) {
-      console.error('❌ Error in getNotifications:', error);
+      console.log('❌ Error in getNotifications:', error);
       res.status(500).json({
         success: false,
         error: error.message
@@ -55,7 +55,7 @@ export class NotificationController {
         data: { unreadCount: count }
       });
     } catch (error: any) {
-      console.error('❌ Error in getUnreadCount:', error);
+      console.log('❌ Error in getUnreadCount:', error);
       res.status(500).json({
         success: false,
         error: error.message

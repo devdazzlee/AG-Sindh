@@ -39,7 +39,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     console.log('✅ User authenticated:', req.user);
     next();
   } catch (error) {
-    console.error('❌ Auth error:', error);
+    console.log('❌ Auth error:', error);
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 }

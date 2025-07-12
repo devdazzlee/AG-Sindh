@@ -6,7 +6,9 @@ import authRoutes from './routes/authRoutes/authRoutes';
 import departmentRoutes from './routes/departmentRoutes/departmentRoutes';
 import courierRoutes from './routes/courierRoutes/courierRoutes';
 import incomingRoutes from './routes/IncomingRoutes/incomingRoutes';
+import outgoingRoutes from './routes/outgoingRoutes/outgoingRoutes';
 import notificationRoutes from './routes/notificationRoutes/notificationRoutes';
+import letterTrackingRoutes from './routes/letterTrackingRoutes/letterTrackingRoutes';
 import cors from 'cors';
 
 const app = express();
@@ -32,7 +34,9 @@ app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/departments`, departmentRoutes);
 app.use(`${API_PREFIX}/couriers`, courierRoutes);
 app.use(`${API_PREFIX}/incoming`, incomingRoutes);
+app.use(`${API_PREFIX}/outgoing`, outgoingRoutes);
 app.use(`${API_PREFIX}/notifications`, notificationRoutes);
+app.use(`${API_PREFIX}/tracking`, letterTrackingRoutes);
 
 app.use(errorHandler);
 
