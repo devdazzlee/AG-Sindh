@@ -46,6 +46,11 @@ interface TrackingRecord {
     name: string
     code: string
   }
+  courierService?: {
+    id: string;
+    serviceName: string;
+    code: string;
+  };
 }
 
 interface TrackingStats {
@@ -408,30 +413,31 @@ export function LetterTrackingTab({ userRole }: LetterTrackingTabProps) {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>QR Code</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>From/To</TableHead>
-                      <TableHead>Subject</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Assigned Date</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredData.map((item) => (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>QR Code</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>From/To</TableHead>
+                <TableHead>Subject</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Courier Service</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Assigned Date</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredData.map((item) => (
                       <TableRow key={item.id} className="hover:bg-gray-50">
                         <TableCell className="font-mono">{item.qrCode}</TableCell>
-                        <TableCell>
+                  <TableCell>
                           <Badge variant={item.type === "incoming" ? "default" : "secondary"}>
                             {item.type}
                           </Badge>
-                        </TableCell>
+                  </TableCell>
                         <TableCell className="max-w-[200px]">
-                          <div className="text-sm">
+                    <div className="text-sm">
                             <div className="truncate" title={item.from}>
                               From: {item.from}
                             </div>
@@ -443,23 +449,32 @@ export function LetterTrackingTab({ userRole }: LetterTrackingTabProps) {
                         <TableCell className="max-w-[200px]">
                           <div className="truncate" title={item.subject || 'No subject'}>
                             {item.subject || 'No subject'}
-                          </div>
-                        </TableCell>
-                        <TableCell>
+                    </div>
+                  </TableCell>
+                  <TableCell>
                           <Badge variant={getPriorityColor(item.priority)}>
-                            {item.priority}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(item.status)}
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
-                              {item.status}
-                            </span>
-                          </div>
-                        </TableCell>
+                      {item.priority}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {item.courierService ? (
+                      <div className="truncate" title={item.courierService.serviceName}>
+                        {item.courierService.serviceName}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(item.status)}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
+                        {item.status}
+                      </span>
+                    </div>
+                  </TableCell>
                         <TableCell>{formatDate(item.assignedDate)}</TableCell>
-                        <TableCell>
+                  <TableCell>
                           <div className="flex gap-1 items-center">
                             <Button
                               size="sm"
@@ -474,23 +489,23 @@ export function LetterTrackingTab({ userRole }: LetterTrackingTabProps) {
                               onValueChange={(value) => handleStatusUpdate(item, value)}
                               disabled={isUpdating === item.id}
                             >
-                              <SelectTrigger className="w-[130px]">
+                      <SelectTrigger className="w-[130px]">
                                 <SelectValue placeholder={isUpdating === item.id ? "Updating..." : "Update"} />
-                              </SelectTrigger>
-                              <SelectContent>
+                      </SelectTrigger>
+                      <SelectContent>
                                 {getAvailableStatuses(item.type, item.status).map(status => (
                                   <SelectItem key={status} value={status}>
                                     {status.charAt(0).toUpperCase() + status.slice(1)}
                                   </SelectItem>
                                 ))}
-                              </SelectContent>
-                            </Select>
+                      </SelectContent>
+                    </Select>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
               </div>
 
               {filteredData.length === 0 && !isLoading && (

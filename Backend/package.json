@@ -6,8 +6,12 @@
   "license": "MIT",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "build": "tsc && prisma generate",
+    "start": "node dist/index.js",
+    "postinstall": "prisma generate",
+    "deploy": "node scripts/deploy.js",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate deploy"
   },
   "dependencies": {
     "@prisma/client": "^6.11.1",

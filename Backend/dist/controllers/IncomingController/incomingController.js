@@ -10,6 +10,8 @@ const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const cloudinary_1 = __importDefault(require("../../lib/cloudinary"));
 const fs_1 = __importDefault(require("fs"));
+const prisma_1 = require("../../../generated/prisma");
+const prisma = new prisma_1.PrismaClient();
 // Role-based authorization middleware
 const requireSuperAdmin = (req, res, next) => {
     console.log('Authorization check:', {
@@ -54,7 +56,9 @@ class IncomingController {
             if (!parsed.success) {
                 return res.status(400).json({ error: parsed.error.errors });
             }
-            const incoming = await incomingService_1.IncomingService.createIncoming(parsed.data);
+            // Pass the creator's user ID to exclude them from notifications
+            const creatorUserId = req.user?.id;
+            const incoming = await incomingService_1.IncomingService.createIncoming(parsed.data, creatorUserId);
             res.status(201).json({ incoming });
         }
         catch (err) {
@@ -66,7 +70,16 @@ class IncomingController {
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 30;
             const offset = (page - 1) * limit;
-            const result = await incomingService_1.IncomingService.getAllIncoming(limit, offset);
+            // Get user's department information if they are a department user
+            let userWithDepartment = req.user;
+            if (req.user && req.user.role === 'other_department') {
+                const userWithDept = await prisma.user.findUnique({
+                    where: { id: req.user.id },
+                    include: { department: true }
+                });
+                userWithDepartment = userWithDept || req.user;
+            }
+            const result = await incomingService_1.IncomingService.getAllIncoming(limit, offset, userWithDepartment);
             res.json(result);
         }
         catch (err) {
@@ -79,6 +92,18 @@ class IncomingController {
             const record = await incomingService_1.IncomingService.getIncomingById(id);
             if (!record)
                 return res.status(404).json({ error: 'Not found' });
+            res.json({ record });
+        }
+        catch (err) {
+            next(err);
+        }
+    }
+    static async getByQRCode(req, res, next) {
+        try {
+            const { qrCode } = req.params;
+            const record = await incomingService_1.IncomingService.getIncomingByQRCode(qrCode);
+            if (!record)
+                return res.status(404).json({ error: 'Letter not found with this QR code' });
             res.json({ record });
         }
         catch (err) {
@@ -141,6 +166,41 @@ class IncomingController {
             res.json({ updated });
         }
         catch (err) {
+            next(err);
+        }
+    }
+    static async updateStatusByQRCode(req, res, next) {
+        try {
+            const { qrCode } = req.params;
+            const parsed = incomingValidation_1.incomingStatusSchema.safeParse(req.body);
+            if (!parsed.success) {
+                return res.status(400).json({ error: parsed.error.errors });
+            }
+            const result = await incomingService_1.IncomingService.updateStatusByQRCode(qrCode, parsed.data.status);
+            if (result.statusChanged) {
+                res.json({
+                    success: true,
+                    message: result.message,
+                    updated: result.updated,
+                    statusChanged: true
+                });
+            }
+            else {
+                res.json({
+                    success: true,
+                    message: result.message,
+                    updated: result.updated,
+                    statusChanged: false
+                });
+            }
+        }
+        catch (err) {
+            if (err.message === 'Incoming letter not found with this QR code') {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Incoming letter not found with this QR code'
+                });
+            }
             next(err);
         }
     }

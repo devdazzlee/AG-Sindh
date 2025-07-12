@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Camera, Upload, Scan, QrCode, Loader2, X, FileImage, Inbox, Plus, RefreshCw } from "lucide-react"
+import { Camera, Upload, Scan, QrCode, Loader2, X, FileImage, Inbox, Plus, RefreshCw, Check } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { CameraModal } from "@/components/camera-modal"
+import { QRScannerModal } from "@/components/qr-scanner-modal"
 import { useToast } from "@/hooks/use-toast"
 import { DatePicker } from "@/components/date-picker"
 import { TimePicker } from "@/components/time-picker"
@@ -64,8 +65,11 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
   const [isGeneratingQR, setIsGeneratingQR] = useState(false)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [isCameraOpen, setIsCameraOpen] = useState(false)
+  const [isQRScannerOpen, setIsQRScannerOpen] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
   const [scannedQR, setScannedQR] = useState("")
+  const [isCollecting, setIsCollecting] = useState(false)
+  const [scannedLetter, setScannedLetter] = useState<any>(null)
   const { toast } = useToast()
   const [receivedDate, setReceivedDate] = useState<Date>()
   const [qrData, setQrData] = useState("")
@@ -169,6 +173,94 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
       })
     } finally {
       setIsScanning(false)
+    }
+  }
+
+  const handleQRScan = async (qrCode: string) => {
+    setScannedQR(qrCode)
+    setScannedLetter(null) // Reset previous letter details
+    
+    try {
+      // Try to fetch letter details to show current status
+      const response = await apiClient.get(`/incoming/qr/${qrCode}`)
+      if (response.data.record) {
+        setScannedLetter(response.data.record)
+        toast({
+          title: "QR Code Scanned",
+          description: `Found letter: ${response.data.record.subject || 'No subject'} (Status: ${response.data.record.status})`,
+        })
+      } else {
+        toast({
+          title: "QR Code Scanned",
+          description: `Successfully scanned QR code: ${qrCode}`,
+        })
+      }
+    } catch (error) {
+      // If letter not found, still show QR code scanned
+      toast({
+        title: "QR Code Scanned",
+        description: `Successfully scanned QR code: ${qrCode}`,
+      })
+    }
+  }
+
+  const handleCollectLetter = async () => {
+    if (!scannedQR) {
+      toast({
+        title: "No QR Code",
+        description: "Please scan a QR code first.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsCollecting(true)
+    try {
+      // Call the fast QR code status update API
+      const response = await apiClient.patch(`/incoming/qr/${scannedQR}/status`, {
+        status: "COLLECTED"
+      })
+
+      if (response.data.success) {
+        if (response.data.statusChanged) {
+          toast({
+            title: "Letter Collected Successfully!",
+            description: response.data.message,
+          })
+          // Refresh the records list to show updated status
+          fetchIncomingRecords()
+        } else {
+          toast({
+            title: "Status Already Updated",
+            description: response.data.message,
+            variant: "default",
+          })
+        }
+        setScannedQR("")
+        setScannedLetter(null)
+      } else {
+        toast({
+          title: "Collection Failed",
+          description: response.data.error || "Failed to collect letter",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        toast({
+          title: "Letter Not Found",
+          description: "No incoming letter found with this QR code. Please check the QR code and try again.",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Collection Failed",
+          description: error.response?.data?.error || "Failed to collect letter. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } finally {
+      setIsCollecting(false)
     }
   }
 
@@ -401,9 +493,9 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex gap-4">
-              <Button onClick={() => setIsCameraOpen(true)} className="flex items-center gap-2">
-                <Camera className="h-4 w-4" />
-                Scan with Camera
+              <Button onClick={() => setIsQRScannerOpen(true)} className="flex items-center gap-2">
+                <QrCode className="h-4 w-4" />
+                Scan QR Code
               </Button>
               <Button
                 variant="outline"
@@ -418,41 +510,137 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
 
             {scannedQR && (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <p className="text-green-800 font-medium">
-                    Scanned QR Code: <span className="font-mono">{scannedQR}</span>
+                    QR Code Scanned Successfully
                   </p>
                 </div>
+                <div className="bg-white p-3 rounded border border-green-100">
+                  <p className="text-sm text-gray-600 mb-1">QR Code:</p>
+                  <p className="font-mono text-sm bg-gray-50 p-2 rounded border">{scannedQR}</p>
+                </div>
+                {scannedLetter && (
+                  <div className="mt-3 p-3 bg-white rounded border border-green-100">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">Subject:</span>
+                        <span className="text-sm text-gray-900">{scannedLetter.subject || 'No subject'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">From:</span>
+                        <span className="text-sm text-gray-900">{scannedLetter.from}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">To:</span>
+                        <span className="text-sm text-gray-900">{scannedLetter.department?.name || 'Unknown Department'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">Current Status:</span>
+                        <Badge variant={getStatusColor(scannedLetter.status)}>
+                          {scannedLetter.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            <div className="p-8 border-2 border-dashed border-gray-300 rounded-lg text-center bg-gray-50">
-              <QrCode className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-2">Point camera at QR code to scan</p>
-              <p className="text-sm text-gray-500">Make sure the QR code is clearly visible and well-lit</p>
+            <div className="p-8 border-2 border-dashed border-gray-300 rounded-lg text-center bg-gradient-to-br from-gray-50 to-gray-100">
+              <div className="max-w-sm mx-auto">
+                <div className="bg-white rounded-full p-4 w-20 h-20 mx-auto mb-6 flex items-center justify-center shadow-sm">
+                  <QrCode className="h-10 w-10 text-gray-500" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Ready to Scan</h3>
+                <p className="text-gray-600 mb-3">Point your camera at the QR code on the incoming letter</p>
+                <div className="space-y-2 text-sm text-gray-500">
+                  <p>• Ensure good lighting</p>
+                  <p>• Hold the QR code steady</p>
+                  <p>• Keep the code clearly visible</p>
+                </div>
+              </div>
             </div>
 
-            <Button
-              className="w-full"
-              disabled={!scannedQR}
-              onClick={() => {
-                toast({
-                  title: "Status Updated",
-                  description: "Letter status updated to 'Collected' successfully.",
-                })
-                setScannedQR("")
-              }}
-            >
-              Update Status to Collected
-            </Button>
+            {scannedLetter?.status === "COLLECTED" ? (
+              <div className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg text-center">
+                <div className="bg-white rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center shadow-sm">
+                  <Check className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-blue-800 mb-2">Letter Already Collected</h3>
+                <p className="text-sm text-blue-700 mb-4">
+                  This letter has already been collected and marked as complete.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setScannedQR("")
+                    setScannedLetter(null)
+                  }}
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                >
+                  <QrCode className="h-4 w-4 mr-2" />
+                  Scan New QR Code
+                </Button>
+              </div>
+            ) : scannedLetter?.status === "ARCHIVED" ? (
+              <div className="p-6 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg text-center">
+                <div className="bg-white rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center shadow-sm">
+                  <X className="h-8 w-8 text-gray-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Letter Already Archived</h3>
+                <p className="text-sm text-gray-700 mb-4">
+                  This letter has been archived and is no longer available for collection.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setScannedQR("")
+                    setScannedLetter(null)
+                  }}
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  <QrCode className="h-4 w-4 mr-2" />
+                  Scan New QR Code
+                </Button>
+              </div>
+            ) : (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="text-center mb-4">
+                  <div className="bg-white rounded-full p-2 w-12 h-12 mx-auto mb-3 flex items-center justify-center shadow-sm">
+                    <QrCode className="h-6 w-6 text-green-600" />
+                  </div>
+                  <h3 className="text-sm font-medium text-green-800 mb-1">Ready to Collect</h3>
+                  <p className="text-xs text-green-700">This letter can be marked as collected</p>
+                </div>
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  disabled={!scannedQR || isCollecting}
+                  onClick={handleCollectLetter}
+                >
+                  {isCollecting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Collecting...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Mark as Collected
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <CameraModal
-          isOpen={isCameraOpen}
-          onClose={() => setIsCameraOpen(false)}
-          onCapture={handleCameraCapture}
+        <QRScannerModal
+          isOpen={isQRScannerOpen}
+          onClose={() => setIsQRScannerOpen(false)}
+          onScan={handleQRScan}
           title="Scan QR Code"
         />
       </div>

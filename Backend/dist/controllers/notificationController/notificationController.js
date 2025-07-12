@@ -19,6 +19,7 @@ class NotificationController {
             });
         }
         catch (error) {
+            console.log('❌ Error in getNotifications:', error);
             res.status(500).json({
                 success: false,
                 error: error.message
@@ -38,6 +39,7 @@ class NotificationController {
             });
         }
         catch (error) {
+            console.log('❌ Error in getUnreadCount:', error);
             res.status(500).json({
                 success: false,
                 error: error.message

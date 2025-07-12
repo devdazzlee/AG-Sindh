@@ -1,6 +1,5 @@
 
 import { PrismaClient, OutgoingStatus, Role } from '../../../generated/prisma';
-import cloudinary from '../../lib/cloudinary';
 import { NotificationService } from '../notificationService/notificationService';
 
 const prisma = new PrismaClient();
@@ -11,7 +10,8 @@ export interface CreateOutgoingData {
   priority: string;
   subject?: string;
   qrCode: string;
-  image?: Express.Multer.File | string; // Can be file object or Cloudinary URL
+  image?: string; // Now just the Cloudinary URL
+  courierServiceId?: string;
 }
 
 export interface UpdateOutgoingData {
@@ -23,22 +23,6 @@ export interface UpdateOutgoingData {
 export class OutgoingService {
   static async createOutgoing(data: CreateOutgoingData, creatorUserId?: string) {
     try {
-      let imageUrl: string | undefined;
-
-      if (data.image) {
-        // If it's already a Cloudinary URL (string), use it directly
-        if (typeof data.image === 'string') {
-          imageUrl = data.image;
-        } else {
-          // If it's a file object, upload to Cloudinary
-          const uploadResult = await cloudinary.uploader.upload(data.image.path, {
-            folder: 'outgoing',
-            resource_type: 'auto',
-          });
-          imageUrl = uploadResult.secure_url;
-        }
-      }
-
       const outgoing = await prisma.outgoing.create({
         data: {
           from: data.from,
@@ -46,11 +30,13 @@ export class OutgoingService {
           priority: data.priority,
           subject: data.subject,
           qrCode: data.qrCode,
-          image: imageUrl,
+          image: data.image, // Direct Cloudinary URL from controller
           status: 'PENDING_DISPATCH',
+          courierServiceId: data.courierServiceId,
         },
         include: {
           department: true,
+          courierService: true,
         },
       });
 
@@ -150,12 +136,28 @@ export class OutgoingService {
     }
   }
 
-  static async getAllOutgoing(limit: number = 30, offset: number = 0) {
+  static async getAllOutgoing(limit: number = 30, offset: number = 0, user?: { id: string; username: string; role: string; department?: { id: string } }) {
     try {
+      console.log('🔍 OutgoingService.getAllOutgoing called with:', { limit, offset, user });
+      
+      // Build where clause based on user role
+      let whereClause: any = {};
+      
+      if (user && user.role === 'other_department' && user.department) {
+        // Department users only see letters where 'from' matches their department
+        whereClause.from = user.department.id;
+        console.log('🏢 Department filter applied:', whereClause);
+      } else {
+        console.log('👑 No filter applied - showing all records');
+      }
+      // super_admin and rd_department can see all letters (no where clause needed)
+      
       const [records, total] = await Promise.all([
         prisma.outgoing.findMany({
+          where: whereClause,
           include: {
             department: true,
+            courierService: true,
           },
           orderBy: {
             createdAt: 'desc',
@@ -163,8 +165,14 @@ export class OutgoingService {
           take: limit,
           skip: offset,
         }),
-        prisma.outgoing.count()
+        prisma.outgoing.count({ where: whereClause })
       ]);
+
+      console.log('📊 Database query results:', { 
+        totalRecords: total, 
+        returnedRecords: records.length,
+        whereClause 
+      });
 
       return {
         records,
@@ -174,6 +182,7 @@ export class OutgoingService {
         totalPages: Math.ceil(total / limit)
       };
     } catch (error) {
+      console.error('❌ Error in OutgoingService.getAllOutgoing:', error);
       throw new Error(`Failed to fetch outgoing letters: ${error}`);
     }
   }
@@ -184,6 +193,7 @@ export class OutgoingService {
         where: { id },
         include: {
           department: true,
+          courierService: true,
         },
       });
 
@@ -199,25 +209,6 @@ export class OutgoingService {
 
   static async updateOutgoing(id: string, data: any) {
     try {
-      let imageUrl: string | undefined;
-
-      if (data.image) {
-        // If it's already a Cloudinary URL (string), use it directly
-        if (typeof data.image === 'string') {
-          imageUrl = data.image;
-        } else if (data.image.path && data.image.path.startsWith('http')) {
-          // If it's a Cloudinary URL in the path property
-          imageUrl = data.image.path;
-        } else {
-          // If it's a file object, upload to Cloudinary
-          const uploadResult = await cloudinary.uploader.upload(data.image.path, {
-            folder: 'outgoing',
-            resource_type: 'auto',
-          });
-          imageUrl = uploadResult.secure_url;
-        }
-      }
-
       const updateData: any = {
         from: data.from,
         to: data.to,
@@ -225,8 +216,8 @@ export class OutgoingService {
         subject: data.subject,
       };
 
-      if (imageUrl) {
-        updateData.image = imageUrl;
+      if (data.image) {
+        updateData.image = data.image; // Direct Cloudinary URL from controller
       }
 
       const outgoing = await prisma.outgoing.update({
@@ -270,8 +261,8 @@ export class OutgoingService {
     try {
       const statusMessages = {
         'PENDING_DISPATCH': 'pending dispatch',
-        'DISPATCHED': 'dispatched',
-        'DELIVERED': 'delivered',
+        'DISPATCHED': 'handed to courier service',
+        'DELIVERED': 'delivered to recipient',
         'RETURNED': 'returned',
       };
 
@@ -291,24 +282,36 @@ export class OutgoingService {
         if (user.role === Role.super_admin) {
           // Super admin gets notified about all status updates
           shouldNotify = true;
-          message = `Outgoing letter ${outgoing.qrCode} has been ${statusMessages[newStatus as keyof typeof statusMessages] || newStatus.toLowerCase()}`;
+          if (newStatus === 'DISPATCHED') {
+            message = `Letter ${outgoing.qrCode} (${outgoing.subject || 'No subject'}) from ${outgoing.department?.name || 'Unknown Department'} has been handed to courier service for delivery to ${outgoing.to}`;
+          } else {
+            message = `Outgoing letter ${outgoing.qrCode} has been ${statusMessages[newStatus as keyof typeof statusMessages] || newStatus.toLowerCase()}`;
+          }
         } else if (user.role === Role.rd_department) {
           // RD department gets notified about all status updates
           shouldNotify = true;
-          message = `Outgoing letter ${outgoing.qrCode} has been ${statusMessages[newStatus as keyof typeof statusMessages] || newStatus.toLowerCase()}`;
+          if (newStatus === 'DISPATCHED') {
+            message = `Letter ${outgoing.qrCode} (${outgoing.subject || 'No subject'}) from ${outgoing.department?.name || 'Unknown Department'} has been handed to courier service for delivery to ${outgoing.to}`;
+          } else {
+            message = `Outgoing letter ${outgoing.qrCode} has been ${statusMessages[newStatus as keyof typeof statusMessages] || newStatus.toLowerCase()}`;
+          }
         } else if (user.role === Role.other_department && user.department) {
           // Other departments only get notified if the letter is from their department
           if (user.department.id === outgoing.from) {
             shouldNotify = true;
-            message = `Outgoing letter ${outgoing.qrCode} has been ${statusMessages[newStatus as keyof typeof statusMessages] || newStatus.toLowerCase()}`;
+            if (newStatus === 'DISPATCHED') {
+              message = `Your letter ${outgoing.qrCode} (${outgoing.subject || 'No subject'}) has been handed to courier service for delivery to ${outgoing.to}`;
+            } else {
+              message = `Your outgoing letter ${outgoing.qrCode} has been ${statusMessages[newStatus as keyof typeof statusMessages] || newStatus.toLowerCase()}`;
+            }
           }
         }
 
         if (shouldNotify) {
           notificationsToCreate.push({
             message,
-            outgoingId: outgoing.id,
-            departmentId: outgoing.from,
+          outgoingId: outgoing.id,
+          departmentId: outgoing.from,
             userId: user.id,
             type: 'status_update'
           });
@@ -327,6 +330,8 @@ export class OutgoingService {
             createdAt: new Date()
           }))
         });
+        
+        console.log(`🔔 Created ${notificationsToCreate.length} notifications for ${newStatus} status update`);
       }
     } catch (error) {
       console.error('Failed to create status update notification:', error);
@@ -416,5 +421,88 @@ export class OutgoingService {
     } catch (error) {
       throw new Error(`Failed to fetch outgoing statistics: ${error}`);
     }
+  }
+
+  static async updateStatusByQRCode(qrCode: string, status: OutgoingStatus) {
+    // Find the outgoing letter by QR code first
+    const outgoing = await prisma.outgoing.findFirst({
+      where: { qrCode },
+      include: {
+        department: true
+      }
+    });
+
+    if (!outgoing) {
+      throw new Error('Outgoing letter not found with this QR code');
+    }
+
+    // Check if status is already the same
+    if (outgoing.status === status) {
+      return {
+        updated: outgoing,
+        statusChanged: false,
+        message: `Status is already ${status}`
+      };
+    }
+
+    // Update the status
+    const updatedOutgoing = await prisma.outgoing.update({
+      where: { id: outgoing.id },
+      data: { 
+        status,
+        // Update relevant dates based on status
+        ...(status === 'DISPATCHED' && { dispatchedDate: new Date() }),
+        ...(status === 'DELIVERED' && { deliveredDate: new Date() })
+      },
+      include: {
+        department: true
+      }
+    });
+
+    // Create notification for status update only if status actually changed
+    await this.createStatusUpdateNotification(updatedOutgoing, status);
+
+    return {
+      updated: updatedOutgoing,
+      statusChanged: true,
+      message: `Status updated successfully to ${status}`
+    };
+  }
+
+  static async getOutgoingByQRCode(qrCode: string) {
+    return prisma.outgoing.findFirst({
+      where: { qrCode },
+      include: { department: true },
+    });
+  }
+
+  static async getCourierTrackingRecords(limit: number = 30, offset: number = 0, user?: { id: string; username: string; role: string; department?: { id: string } }) {
+    // Build where clause based on user role
+    let whereClause: any = {};
+    
+    if (user && user.role === 'other_department' && user.department) {
+      // Department users only see letters where 'from' matches their department
+      whereClause.from = user.department.id;
+    }
+    // super_admin and rd_department can see all letters (no where clause needed)
+    
+    const [records, total] = await Promise.all([
+      prisma.outgoing.findMany({
+        where: whereClause,
+        include: { department: true },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.outgoing.count({ where: whereClause })
+    ]);
+    
+    return {
+      records,
+      total,
+      hasMore: offset + limit < total,
+      currentPage: Math.floor(offset / limit) + 1,
+      totalPages: Math.ceil(total / limit)
+    };
   }
 } 

@@ -1,10 +1,13 @@
 import { Request, Response } from "express"
 import { LetterTrackingService } from "../../services/letterTrackingService/letterTrackingService"
+import { AuthenticatedRequest } from "../../middlewares/auth"
+import { PrismaClient } from "../../../generated/prisma"
 
 const letterTrackingService = new LetterTrackingService()
+const prisma = new PrismaClient()
 
 export class LetterTrackingController {
-  async getAllTrackingRecords(req: Request, res: Response) {
+  async getAllTrackingRecords(req: AuthenticatedRequest, res: Response) {
     try {
       const page = parseInt(req.query.page as string) || 1
       const limit = parseInt(req.query.limit as string) || 30
@@ -12,12 +15,23 @@ export class LetterTrackingController {
       const typeFilter = req.query.type as string
       const priorityFilter = req.query.priority as string
 
+      // Get user's department information if they are a department user
+      let userWithDepartment: any = req.user;
+      if (req.user && req.user.role === 'other_department') {
+        const userWithDept = await prisma.user.findUnique({
+          where: { id: req.user.id },
+          include: { department: true }
+        });
+        userWithDepartment = userWithDept || req.user;
+      }
+
       const result = await letterTrackingService.getAllTrackingRecords(
         page,
         limit,
         statusFilter,
         typeFilter,
-        priorityFilter
+        priorityFilter,
+        userWithDepartment
       )
 
       res.status(200).json({

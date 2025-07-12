@@ -6,6 +6,9 @@ import path from 'path';
 import cloudinary from '../../lib/cloudinary';
 import fs from 'fs';
 import { AuthenticatedRequest } from '../../middlewares/auth';
+import { PrismaClient } from '../../../generated/prisma';
+
+const prisma = new PrismaClient();
 
 // Extend Express Request type to include file
 interface MulterRequest extends AuthenticatedRequest {
@@ -76,7 +79,17 @@ export class IncomingController {
       const limit = parseInt(req.query.limit as string) || 30;
       const offset = (page - 1) * limit;
       
-      const result = await IncomingService.getAllIncoming(limit, offset);
+      // Get user's department information if they are a department user
+      let userWithDepartment: any = req.user;
+      if (req.user && req.user.role === 'other_department') {
+        const userWithDept = await prisma.user.findUnique({
+          where: { id: req.user.id },
+          include: { department: true }
+        });
+        userWithDepartment = userWithDept || req.user;
+      }
+      
+      const result = await IncomingService.getAllIncoming(limit, offset, userWithDepartment);
       res.json(result);
     } catch (err) {
       next(err);
@@ -88,6 +101,17 @@ export class IncomingController {
       const { id } = req.params;
       const record = await IncomingService.getIncomingById(id);
       if (!record) return res.status(404).json({ error: 'Not found' });
+      res.json({ record });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getByQRCode(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const { qrCode } = req.params;
+      const record = await IncomingService.getIncomingByQRCode(qrCode);
+      if (!record) return res.status(404).json({ error: 'Letter not found with this QR code' });
       res.json({ record });
     } catch (err) {
       next(err);
@@ -151,6 +175,42 @@ export class IncomingController {
       const updated = await IncomingService.updateStatus(id, parsed.data.status);
       res.json({ updated });
     } catch (err) {
+      next(err);
+    }
+  }
+
+  static async updateStatusByQRCode(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const { qrCode } = req.params;
+      const parsed = incomingStatusSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors });
+      }
+      
+      const result = await IncomingService.updateStatusByQRCode(qrCode, parsed.data.status);
+      
+      if (result.statusChanged) {
+        res.json({ 
+          success: true,
+          message: result.message,
+          updated: result.updated,
+          statusChanged: true
+        });
+      } else {
+        res.json({ 
+          success: true,
+          message: result.message,
+          updated: result.updated,
+          statusChanged: false
+        });
+      }
+    } catch (err: any) {
+      if (err.message === 'Incoming letter not found with this QR code') {
+        return res.status(404).json({ 
+          success: false,
+          error: 'Incoming letter not found with this QR code' 
+        });
+      }
       next(err);
     }
   }

@@ -8,6 +8,13 @@ const outgoingSchema = z.object({
   }),
   subject: z.string().optional(),
   qrCode: z.string().min(1, 'QR code is required'),
+  courierServiceId: z.string().optional(),
+});
+
+export const outgoingStatusSchema = z.object({
+  status: z.enum(['PENDING_DISPATCH', 'DISPATCHED', 'DELIVERED', 'RETURNED'], {
+    errorMap: () => ({ message: 'Invalid status' }),
+  }),
 });
 
 export const validateOutgoingData = (data: any) => {

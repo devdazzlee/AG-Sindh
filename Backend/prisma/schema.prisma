@@ -7,6 +7,7 @@
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -59,6 +60,7 @@ model Courier {
   status        String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  outgoingLetters Outgoing[] @relation("CourierOutgoing")
 }
 
 enum IncomingStatus {
@@ -101,10 +103,12 @@ model Outgoing {
   subject       String?
   qrCode        String         @unique
   status        OutgoingStatus @default(PENDING_DISPATCH)
+  courierServiceId String?     // courier service id (relation below)
   createdAt     DateTime       @default(now())
   dispatchedDate DateTime?
   deliveredDate DateTime?
   department    Department     @relation("DepartmentOutgoing", fields: [from], references: [id])
+  courierService Courier?      @relation("CourierOutgoing", fields: [courierServiceId], references: [id])
   notifications Notification[]
 }
 

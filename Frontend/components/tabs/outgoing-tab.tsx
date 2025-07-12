@@ -38,6 +38,17 @@ interface OutgoingRecord {
     name: string
     code: string
   }
+  courierService?: {
+    id: string;
+    serviceName: string;
+    code: string;
+  };
+}
+
+interface CourierService {
+  id: string;
+  serviceName: string;
+  code: string;
 }
 
 const generateUniqueQR = () => {
@@ -70,10 +81,13 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
   const [outgoingRecords, setOutgoingRecords] = useState<OutgoingRecord[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [courierServices, setCourierServices] = useState<CourierService[]>([])
+  const [selectedCourier, setSelectedCourier] = useState<string>("")
 
   useEffect(() => {
     fetchDepartments()
     fetchOutgoingRecords()
+    fetchCourierServices()
   }, [])
 
   const fetchDepartments = async () => {
@@ -93,7 +107,7 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
     setIsLoading(true)
     try {
       const response = await apiClient.get("/outgoing")
-      setOutgoingRecords(response.data.data?.records || [])
+      setOutgoingRecords(response.data.records || [])
     } catch (error) {
       toast({
         title: "Error",
@@ -102,6 +116,19 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const fetchCourierServices = async () => {
+    try {
+      const response = await apiClient.get("/couriers")
+      setCourierServices(response.data.couriers || [])
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch courier services",
+        variant: "destructive",
+      })
     }
   }
 
@@ -172,7 +199,15 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
       })
       return
     }
-
+    // If courier is required, check
+    if ((formData.priority === "high" || formData.priority === "medium") && !selectedCourier) {
+      toast({
+        title: "Missing Courier Service",
+        description: "Please select a courier service.",
+        variant: "destructive",
+      })
+      return
+    }
     setIsSubmitting(true)
     try {
       const formDataToSend = new FormData()
@@ -181,25 +216,24 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
       formDataToSend.append('priority', formData.priority)
       formDataToSend.append('subject', formData.subject)
       formDataToSend.append('qrCode', uniqueQR)
-      
+      if (selectedCourier) {
+        formDataToSend.append('courierServiceId', selectedCourier)
+      }
       if (capturedImage) {
         // Convert base64 to blob for upload
         const response = await fetch(capturedImage)
         const blob = await response.blob()
         formDataToSend.append('image', blob, 'document.jpg')
       }
-
       const response = await apiClient.post("/outgoing", formDataToSend, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       })
-
       toast({
         title: "Success",
         description: "Outgoing letter has been saved successfully.",
       })
-
       // Reset form
       setFormData({
         from: "",
@@ -210,7 +244,7 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
       setCapturedImage(null)
       setQrGenerated(false)
       setUniqueQR(generateUniqueQR())
-      
+      setSelectedCourier("")
       // Refresh the records list
       fetchOutgoingRecords()
     } catch (error: any) {
@@ -238,7 +272,7 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
     try {
       // Generate QR code
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(uniqueQR)}`
-      
+
       // Create image element to load QR code
       const img = new Image()
       img.crossOrigin = "anonymous"
@@ -501,6 +535,23 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
               </Select>
             </div>
 
+            {/* Courier Service Dropdown - conditional */}
+            <div>
+              <Label htmlFor="courierService">Courier Service *</Label>
+              <Select value={selectedCourier} onValueChange={setSelectedCourier}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select courier service" />
+                </SelectTrigger>
+                <SelectContent>
+                  {courierServices.map((courier) => (
+                    <SelectItem key={courier.id} value={courier.id}>
+                      {courier.serviceName} {courier.code ? `(${courier.code})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <Label htmlFor="subject">Subject</Label>
               <Input
@@ -512,8 +563,8 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
             </div>
 
             <div className="pt-4 border-t">
-              <Button 
-                onClick={handleGenerateQRAndSave} 
+              <Button
+                onClick={handleGenerateQRAndSave}
                 disabled={isGeneratingQR || isSubmitting}
                 className="w-full"
               >
@@ -537,8 +588,8 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-            <CardTitle>Recent Outgoing Records</CardTitle>
-            <CardDescription>List of recently processed outgoing letters</CardDescription>
+                <CardTitle>Recent Outgoing Records</CardTitle>
+                <CardDescription>List of recently processed outgoing letters</CardDescription>
               </div>
               <Button
                 size="sm"
@@ -556,7 +607,7 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
             ) : (
-            <div className="space-y-4">
+              <div className="space-y-4">
                 {getFilteredRecords().length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     No outgoing records found
@@ -567,9 +618,9 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
                       <div className="flex items-center justify-between">
                         <span className="font-mono text-sm font-medium">{record.qrCode}</span>
                         <Badge variant={getPriorityColor(record.priority)}>
-                      {record.priority}
-                    </Badge>
-                  </div>
+                          {record.priority}
+                        </Badge>
+                      </div>
                       <p className="font-medium text-gray-900 truncate" title={record.subject || 'No subject'}>
                         {record.subject || 'No subject'}
                       </p>
@@ -579,6 +630,12 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
                       <p className="text-sm text-gray-600 truncate" title={record.to}>
                         To: {record.to}
                       </p>
+                      {/* Show courier service if present */}
+                      {record.courierService && (
+                        <p className="text-sm text-gray-600 truncate" title={record.courierService.serviceName}>
+                          Courier: {record.courierService.serviceName}
+                        </p>
+                      )}
                       <div className="flex items-center justify-between pt-1">
                         <span className="text-xs text-gray-500">
                           {new Date(record.createdAt).toLocaleDateString()}
@@ -586,11 +643,11 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
                         <Badge variant={getStatusColor(record.status)}>
                           {record.status}
                         </Badge>
-                  </div>
-                </div>
+                      </div>
+                    </div>
                   ))
                 )}
-            </div>
+              </div>
             )}
           </CardContent>
         </Card>

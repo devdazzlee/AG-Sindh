@@ -23,6 +23,11 @@ export interface LetterTrackingRecord {
     name: string
     code: string
   }
+  courierService?: {
+    id: string;
+    serviceName: string;
+    code: string;
+  };
 }
 
 export class LetterTrackingService {
@@ -32,7 +37,8 @@ export class LetterTrackingService {
     limit: number = 30,
     statusFilter?: string,
     typeFilter?: string,
-    priorityFilter?: string
+    priorityFilter?: string,
+    user?: { id: string; username: string; role: string; department?: { id: string } }
   ) {
     try {
       const offset = (page - 1) * limit
@@ -47,6 +53,12 @@ export class LetterTrackingService {
       if (priorityFilter && priorityFilter !== "all") {
         incomingWhere.priority = priorityFilter.toUpperCase()
       }
+      
+      // Apply role-based filtering for incoming records
+      if (user && user.role === 'other_department' && user.department) {
+        // Department users only see incoming letters where 'to' matches their department
+        incomingWhere.to = user.department.id;
+      }
 
       // Build where conditions for outgoing records
       const outgoingWhere: any = {}
@@ -57,6 +69,12 @@ export class LetterTrackingService {
       }
       if (priorityFilter && priorityFilter !== "all") {
         outgoingWhere.priority = priorityFilter.toUpperCase()
+      }
+      
+      // Apply role-based filtering for outgoing records
+      if (user && user.role === 'other_department' && user.department) {
+        // Department users only see outgoing letters where 'from' matches their department
+        outgoingWhere.from = user.department.id;
       }
 
       // Fetch incoming records
@@ -77,6 +95,7 @@ export class LetterTrackingService {
         where: outgoingWhere,
         include: {
           department: true,
+          courierService: true,
         },
         skip: offset,
         take: limit,
@@ -118,6 +137,7 @@ export class LetterTrackingService {
         deliveredDate: record.deliveredDate?.toISOString(),
         image: record.image,
         department: record.department,
+        courierService: record.courierService,
       }))
 
       // Combine and sort by creation date
@@ -424,4 +444,4 @@ export class LetterTrackingService {
       console.error('Failed to create batch status notification:', error)
     }
   }
-} 
+}

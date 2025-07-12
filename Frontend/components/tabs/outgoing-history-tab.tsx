@@ -44,6 +44,11 @@ interface OutgoingRecord {
     name: string
     code: string
   }
+  courierService?: {
+    id: string;
+    serviceName: string;
+    code: string;
+  };
 }
 
 export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
@@ -75,14 +80,17 @@ export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
     setIsLoading(true)
     try {
       const response = await apiClient.get(`/outgoing?page=${page}&limit=30`)
-      setRecords(response.data.data?.records || [])
+      console.log('📊 Outgoing API response:', response.data)
+      
+      setRecords(response.data.records || [])
       setPagination({
-        currentPage: response.data.data?.currentPage || 1,
-        totalPages: response.data.data?.totalPages || 1,
-        total: response.data.data?.total || 0,
-        hasMore: response.data.data?.hasMore || false
+        currentPage: response.data.currentPage || 1,
+        totalPages: response.data.totalPages || 1,
+        total: response.data.total || 0,
+        hasMore: response.data.hasMore || false
       })
     } catch (error: any) {
+      console.error('❌ Error fetching outgoing records:', error)
       toast({
         title: "Error",
         description: error.response?.data?.error?.[0]?.message || "Failed to fetch records",
@@ -320,6 +328,7 @@ export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
                   <TableHead>To</TableHead>
                   <TableHead>Subject</TableHead>
                   <TableHead>Priority</TableHead>
+                  <TableHead>Courier Service</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
@@ -348,6 +357,15 @@ export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
                           <Badge variant={getPriorityColor(record.priority)}>
                         {record.priority}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {record.courierService ? (
+                        <div className="truncate" title={record.courierService.serviceName}>
+                          {record.courierService.serviceName}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </TableCell>
                         <TableCell>{new Date(record.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>

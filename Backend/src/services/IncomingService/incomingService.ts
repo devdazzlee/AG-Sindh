@@ -114,15 +114,25 @@ export class IncomingService {
     }
   }
 
-  static async getAllIncoming(limit: number = 30, offset: number = 0) {
+  static async getAllIncoming(limit: number = 30, offset: number = 0, user?: { id: string; username: string; role: string; department?: { id: string } }) {
+    // Build where clause based on user role
+    let whereClause: any = {};
+    
+    if (user && user.role === 'other_department' && user.department) {
+      // Department users only see letters where 'to' matches their department
+      whereClause.to = user.department.id;
+    }
+    // super_admin and rd_department can see all letters (no where clause needed)
+    
     const [records, total] = await Promise.all([
       prisma.incoming.findMany({
+        where: whereClause,
         include: { department: true, notifications: true },
         orderBy: { createdAt: 'desc' },
         take: limit,
         skip: offset,
       }),
-      prisma.incoming.count()
+      prisma.incoming.count({ where: whereClause })
     ]);
     
     return {
@@ -138,6 +148,13 @@ export class IncomingService {
     return prisma.incoming.findUnique({
       where: { id },
       include: { department: true, notifications: true },
+    });
+  }
+
+  static async getIncomingByQRCode(qrCode: string) {
+    return prisma.incoming.findFirst({
+      where: { qrCode },
+      include: { department: true },
     });
   }
 
@@ -180,6 +197,47 @@ export class IncomingService {
     await this.createStatusUpdateNotification(updatedIncoming, status);
 
     return updatedIncoming;
+  }
+
+  static async updateStatusByQRCode(qrCode: string, status: IncomingStatus) {
+    // Find the incoming letter by QR code first
+    const incoming = await prisma.incoming.findFirst({
+      where: { qrCode },
+      include: {
+        department: true
+      }
+    });
+
+    if (!incoming) {
+      throw new Error('Incoming letter not found with this QR code');
+    }
+
+    // Check if status is already the same
+    if (incoming.status === status) {
+      return {
+        updated: incoming,
+        statusChanged: false,
+        message: `Status is already ${status}`
+      };
+    }
+
+    // Update the status
+    const updatedIncoming = await prisma.incoming.update({
+      where: { id: incoming.id },
+      data: { status },
+      include: {
+        department: true
+      }
+    });
+
+    // Create notification for status update only if status actually changed
+    await this.createStatusUpdateNotification(updatedIncoming, status);
+
+    return {
+      updated: updatedIncoming,
+      statusChanged: true,
+      message: `Status updated successfully to ${status}`
+    };
   }
 
   static async createStatusUpdateNotification(incoming: any, newStatus: IncomingStatus) {

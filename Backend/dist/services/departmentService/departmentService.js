@@ -61,13 +61,33 @@ class DepartmentService {
         return prisma.department.update({ where: { id }, data: deptData, include: { user: true } });
     }
     static async deleteDepartmentById(id) {
-        // Delete department and linked user
-        const department = await prisma.department.findUnique({ where: { id } });
-        if (!department)
+        // Check if department exists
+        const department = await prisma.department.findUnique({
+            where: { id },
+            include: {
+                incomingLetters: true,
+                notifications: true
+            }
+        });
+        if (!department) {
             throw new Error('Department not found');
+        }
+        // Check if department has incoming letters
+        if (department.incomingLetters && department.incomingLetters.length > 0) {
+            throw new Error(`Cannot delete department. It has ${department.incomingLetters.length} incoming letter(s) associated with it. Please transfer or delete these letters first.`);
+        }
+        // Check if department has notifications
+        if (department.notifications && department.notifications.length > 0) {
+            // Delete notifications first
+            await prisma.notification.deleteMany({
+                where: { departmentId: id }
+            });
+        }
+        // Delete linked user first
         if (department.userId) {
             await prisma.user.delete({ where: { id: department.userId } });
         }
+        // Now delete the department
         return prisma.department.delete({ where: { id } });
     }
     static async setDepartmentStatus(id, status) {

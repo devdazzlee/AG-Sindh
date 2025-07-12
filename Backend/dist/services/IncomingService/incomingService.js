@@ -2,10 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.IncomingService = void 0;
 const prisma_1 = require("../../../generated/prisma");
-const notificationService_1 = require("../notificationService/notificationService");
 const prisma = new prisma_1.PrismaClient();
 class IncomingService {
-    static async createIncoming(data) {
+    static async createIncoming(data, creatorUserId) {
         // Create incoming record
         const createData = {
             ...data,
@@ -23,62 +22,105 @@ class IncomingService {
                 department: true
             }
         });
-        // Create notifications for different user roles
-        await this.createNotificationsForIncoming(incoming);
+        // Create notifications for relevant users (excluding the creator)
+        await this.createNotificationsForIncoming(incoming, creatorUserId);
         return incoming;
     }
-    static async createNotificationsForIncoming(incoming) {
+    static async createNotificationsForIncoming(incoming, creatorUserId) {
         try {
-            // 1. Notify the specific department that received the letter
-            if (incoming.department) {
-                await notificationService_1.NotificationService.createNotification({
-                    message: `New incoming letter received for ${incoming.department.name}: ${incoming.subject || 'No subject'} (QR: ${incoming.qrCode})`,
-                    incomingId: incoming.id,
-                    departmentId: incoming.department.id,
-                    type: 'incoming'
+            console.log('🔔 Creating notifications for incoming:', {
+                incomingId: incoming.id,
+                to: incoming.to,
+                departmentName: incoming.department?.name,
+                creatorUserId
+            });
+            // Get the creator's role to determine who should be notified
+            let creatorRole = null;
+            if (creatorUserId) {
+                const creator = await prisma.user.findUnique({
+                    where: { id: creatorUserId },
+                    include: { department: true }
                 });
+                creatorRole = creator?.role || null;
             }
-            // 2. Notify all RD department users
-            const rdUsers = await prisma.user.findMany({
-                where: { role: prisma_1.Role.rd_department },
+            // Get all users in a single query
+            const allUsers = await prisma.user.findMany({
                 include: { department: true }
             });
-            for (const rdUser of rdUsers) {
-                await notificationService_1.NotificationService.createNotification({
-                    message: `New incoming letter received: ${incoming.subject || 'No subject'} for ${incoming.department?.name || 'Unknown Department'} (QR: ${incoming.qrCode})`,
-                    incomingId: incoming.id,
-                    departmentId: null, // RD department sees all notifications
-                    type: 'incoming'
-                });
+            // Prepare batch notification data
+            const notificationsToCreate = [];
+            // Process users and prepare notification data
+            for (const user of allUsers) {
+                // Skip the creator
+                if (creatorUserId && user.id === creatorUserId) {
+                    continue;
+                }
+                let shouldNotify = false;
+                let message = '';
+                if (user.role === prisma_1.Role.super_admin) {
+                    // Super admin gets notified about all incoming letters (except when they create it)
+                    shouldNotify = true;
+                    message = `New incoming letter created: ${incoming.subject || 'No subject'} for ${incoming.department?.name || 'Unknown Department'} (QR: ${incoming.qrCode})`;
+                }
+                else if (user.role === prisma_1.Role.rd_department) {
+                    // RD department gets notified about all incoming letters (except when they create it)
+                    shouldNotify = true;
+                    message = `New incoming letter received: ${incoming.subject || 'No subject'} for ${incoming.department?.name || 'Unknown Department'} (QR: ${incoming.qrCode})`;
+                }
+                else if (user.role === prisma_1.Role.other_department && user.department) {
+                    // Other departments only get notified if the letter is for their department (except when they create it)
+                    if (user.department.id === incoming.to) {
+                        shouldNotify = true;
+                        message = `New incoming letter received for your department: ${incoming.subject || 'No subject'} (QR: ${incoming.qrCode})`;
+                    }
+                }
+                if (shouldNotify) {
+                    notificationsToCreate.push({
+                        message,
+                        incomingId: incoming.id,
+                        departmentId: incoming.to,
+                        userId: user.id,
+                        type: 'incoming'
+                    });
+                }
             }
-            // 3. Notify all super admin users
-            const superAdmins = await prisma.user.findMany({
-                where: { role: prisma_1.Role.super_admin },
-                include: { department: true }
-            });
-            for (const admin of superAdmins) {
-                await notificationService_1.NotificationService.createNotification({
-                    message: `New incoming letter created: ${incoming.subject || 'No subject'} for ${incoming.department?.name || 'Unknown Department'} (QR: ${incoming.qrCode})`,
-                    incomingId: incoming.id,
-                    departmentId: null, // Super admin sees all notifications
-                    type: 'incoming'
+            // Create all notifications in a single batch operation
+            if (notificationsToCreate.length > 0) {
+                await prisma.notification.createMany({
+                    data: notificationsToCreate.map(notification => ({
+                        message: notification.message,
+                        incomingId: notification.incomingId,
+                        departmentId: notification.departmentId,
+                        userId: notification.userId,
+                        isRead: false,
+                        createdAt: new Date()
+                    }))
                 });
+                console.log(`🔔 Successfully created ${notificationsToCreate.length} notifications in batch`);
             }
         }
         catch (error) {
-            console.log('Error creating notifications:', error);
+            console.log('❌ Error creating notifications:', error);
             // Don't throw error to prevent incoming creation from failing
         }
     }
-    static async getAllIncoming(limit = 30, offset = 0) {
+    static async getAllIncoming(limit = 30, offset = 0, user) {
+        // Build where clause based on user role
+        let whereClause = {};
+        if (user && user.role === 'other_department' && user.department) {
+            // Department users only see letters where 'to' matches their department
+            whereClause.to = user.department.id;
+        }
+        // super_admin and rd_department can see all letters (no where clause needed)
         const [records, total] = await Promise.all([
             prisma.incoming.findMany({
+                where: whereClause,
                 include: { department: true, notifications: true },
                 orderBy: { createdAt: 'desc' },
                 take: limit,
                 skip: offset,
             }),
-            prisma.incoming.count()
+            prisma.incoming.count({ where: whereClause })
         ]);
         return {
             records,
@@ -92,6 +134,12 @@ class IncomingService {
         return prisma.incoming.findUnique({
             where: { id },
             include: { department: true, notifications: true },
+        });
+    }
+    static async getIncomingByQRCode(qrCode) {
+        return prisma.incoming.findFirst({
+            where: { qrCode },
+            include: { department: true },
         });
     }
     static async updateIncoming(id, data) {
@@ -128,6 +176,41 @@ class IncomingService {
         await this.createStatusUpdateNotification(updatedIncoming, status);
         return updatedIncoming;
     }
+    static async updateStatusByQRCode(qrCode, status) {
+        // Find the incoming letter by QR code first
+        const incoming = await prisma.incoming.findFirst({
+            where: { qrCode },
+            include: {
+                department: true
+            }
+        });
+        if (!incoming) {
+            throw new Error('Incoming letter not found with this QR code');
+        }
+        // Check if status is already the same
+        if (incoming.status === status) {
+            return {
+                updated: incoming,
+                statusChanged: false,
+                message: `Status is already ${status}`
+            };
+        }
+        // Update the status
+        const updatedIncoming = await prisma.incoming.update({
+            where: { id: incoming.id },
+            data: { status },
+            include: {
+                department: true
+            }
+        });
+        // Create notification for status update only if status actually changed
+        await this.createStatusUpdateNotification(updatedIncoming, status);
+        return {
+            updated: updatedIncoming,
+            statusChanged: true,
+            message: `Status updated successfully to ${status}`
+        };
+    }
     static async createStatusUpdateNotification(incoming, newStatus) {
         try {
             const statusMessages = {
@@ -136,32 +219,54 @@ class IncomingService {
                 'COLLECTED': 'Letter has been collected',
                 'ARCHIVED': 'Letter has been archived'
             };
-            const message = `${statusMessages[newStatus]}: ${incoming.subject || 'No subject'} (QR: ${incoming.qrCode})`;
-            // Notify the department
-            if (incoming.department) {
-                await notificationService_1.NotificationService.createNotification({
-                    message,
-                    incomingId: incoming.id,
-                    departmentId: incoming.department.id,
-                    type: 'status_update'
-                });
+            // Get all users in a single query
+            const allUsers = await prisma.user.findMany({
+                include: { department: true }
+            });
+            // Prepare batch notification data
+            const notificationsToCreate = [];
+            // Process users and prepare notification data
+            for (const user of allUsers) {
+                let shouldNotify = false;
+                let message = '';
+                if (user.role === prisma_1.Role.super_admin) {
+                    // Super admin gets notified about all status updates
+                    shouldNotify = true;
+                    message = `Status updated to ${newStatus}: ${incoming.subject || 'No subject'} for ${incoming.department?.name || 'Unknown Department'} (QR: ${incoming.qrCode})`;
+                }
+                else if (user.role === prisma_1.Role.rd_department) {
+                    // RD department gets notified about all status updates
+                    shouldNotify = true;
+                    message = `Status updated to ${newStatus}: ${incoming.subject || 'No subject'} for ${incoming.department?.name || 'Unknown Department'} (QR: ${incoming.qrCode})`;
+                }
+                else if (user.role === prisma_1.Role.other_department && user.department) {
+                    // Other departments only get notified if the letter is for their department
+                    if (user.department.id === incoming.to) {
+                        shouldNotify = true;
+                        message = `${statusMessages[newStatus]}: ${incoming.subject || 'No subject'} (QR: ${incoming.qrCode})`;
+                    }
+                }
+                if (shouldNotify) {
+                    notificationsToCreate.push({
+                        message,
+                        incomingId: incoming.id,
+                        departmentId: incoming.to,
+                        userId: user.id,
+                        type: 'status_update'
+                    });
+                }
             }
-            // Notify RD department and super admins
-            const rdUsers = await prisma.user.findMany({
-                where: { role: prisma_1.Role.rd_department },
-                include: { department: true }
-            });
-            const superAdmins = await prisma.user.findMany({
-                where: { role: prisma_1.Role.super_admin },
-                include: { department: true }
-            });
-            const allAdmins = [...rdUsers, ...superAdmins];
-            for (const admin of allAdmins) {
-                await notificationService_1.NotificationService.createNotification({
-                    message: `Status updated to ${newStatus}: ${incoming.subject || 'No subject'} for ${incoming.department?.name || 'Unknown Department'} (QR: ${incoming.qrCode})`,
-                    incomingId: incoming.id,
-                    departmentId: null,
-                    type: 'status_update'
+            // Create all notifications in a single batch operation
+            if (notificationsToCreate.length > 0) {
+                await prisma.notification.createMany({
+                    data: notificationsToCreate.map(notification => ({
+                        message: notification.message,
+                        incomingId: notification.incomingId,
+                        departmentId: notification.departmentId,
+                        userId: notification.userId,
+                        isRead: false,
+                        createdAt: new Date()
+                    }))
                 });
             }
         }

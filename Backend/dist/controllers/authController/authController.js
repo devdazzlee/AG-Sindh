@@ -3,6 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const authService_1 = require("../../services/authService/authService");
 const authValidation_1 = require("../../validation/authValidation/authValidation");
+function validateRole(role) {
+    return ['super_admin', 'rd_department', 'other_department'].includes(role);
+}
 class AuthController {
     static async signup(req, res) {
         try {

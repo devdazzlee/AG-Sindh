@@ -1,9 +1,13 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { OutgoingService } from '../../services/outgoingService/outgoingService';
-import { validateOutgoingData } from '../../validation/outgoingValidation/outgoingValidation';
+import { validateOutgoingData, validateOutgoingStatusUpdate } from '../../validation/outgoingValidation/outgoingValidation';
 import { AuthenticatedRequest } from '../../middlewares/auth';
 import cloudinary from '../../lib/cloudinary';
 import fs from 'fs';
+import { outgoingStatusSchema } from '../../validation/outgoingValidation/outgoingValidation';
+import { PrismaClient } from '../../../generated/prisma';
+
+const prisma = new PrismaClient();
 
 export class OutgoingController {
   static async createOutgoing(req: AuthenticatedRequest, res: Response) {
@@ -16,46 +20,18 @@ export class OutgoingController {
         });
       }
 
-      const { from, to, priority, subject, qrCode } = req.body;
-      let image = req.file;
+      const { from, to, priority, subject, qrCode, courierServiceId } = req.body;
+      let imageUrl: string | undefined;
 
       // If file is uploaded, upload to Cloudinary and delete local file
-      if (image) {
-        const originalPath = image.path; // Store original path before modifying
-        console.log('📁 Processing file upload:', {
-          originalPath,
-          fileSize: image.size,
-          mimetype: image.mimetype
+      if (req.file) {
+        // Upload to Cloudinary
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'outgoing_letters',
         });
-
-        try {
-          console.log('☁️ Uploading to Cloudinary...');
-          const result = await cloudinary.uploader.upload(image.path, {
-            folder: 'outgoing_letters',
-          });
-          console.log('✅ Cloudinary upload successful:', result.secure_url);
-          
-          // Replace the file object with Cloudinary URL
-          image = { ...image, path: result.secure_url } as any;
-          
-          // Delete local file using original path
-          console.log('🗑️ Deleting local file:', originalPath);
-          if (fs.existsSync(originalPath)) {
-            fs.unlinkSync(originalPath);
-            console.log('✅ Local file deleted successfully');
-          } else {
-            console.log('⚠️ Local file not found for deletion');
-          }
-        } catch (uploadError) {
-          console.error('❌ Cloudinary upload failed:', uploadError);
-          // If Cloudinary upload fails, delete local file and return error
-          if (fs.existsSync(originalPath)) {
-            console.log('🗑️ Deleting local file after failed upload:', originalPath);
-            fs.unlinkSync(originalPath);
-            console.log('✅ Local file deleted after failed upload');
-          }
-          throw new Error(`Failed to upload image to Cloudinary: ${uploadError}`);
-        }
+        imageUrl = result.secure_url;
+        // Delete local file
+        fs.unlinkSync(req.file.path);
       }
 
       const outgoing = await OutgoingService.createOutgoing({
@@ -64,78 +40,80 @@ export class OutgoingController {
         priority,
         subject,
         qrCode,
-        image,
+        image: imageUrl,
+        courierServiceId,
       }, req.user?.id);
 
       res.status(201).json({
         success: true,
-        message: 'Outgoing letter created successfully',
         data: outgoing,
       });
     } catch (error: any) {
-      console.error('❌ Error in createOutgoing:', error);
+      console.error('Error creating outgoing:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to create outgoing letter',
         error: error.message,
       });
     }
   }
 
-  static async getAllOutgoing(req: Request, res: Response) {
+  static async getAll(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const { limit = 30, offset = 0 } = req.query;
-      const outgoing = await OutgoingService.getAllOutgoing(Number(limit), Number(offset));
-
-      res.status(200).json({
-        success: true,
-        message: 'Outgoing letters fetched successfully',
-        data: outgoing,
+      console.log('🔍 Outgoing getAll called with user:', req.user);
+      
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 30;
+      const offset = (page - 1) * limit;
+      
+      console.log('📄 Pagination params:', { page, limit, offset });
+      
+      // Get user's department information if they are a department user
+      let userWithDepartment: any = req.user;
+      if (req.user && req.user.role === 'other_department') {
+        const userWithDept = await prisma.user.findUnique({
+          where: { id: req.user.id },
+          include: { department: true }
+        });
+        userWithDepartment = userWithDept || req.user;
+        console.log('🏢 Department user with dept:', userWithDepartment);
+      } else {
+        console.log('👑 Admin/RD user:', userWithDepartment);
+      }
+      
+      const result = await OutgoingService.getAllOutgoing(limit, offset, userWithDepartment);
+      console.log('📊 Outgoing result:', { 
+        totalRecords: result.total, 
+        returnedRecords: result.records.length,
+        hasMore: result.hasMore 
       });
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch outgoing letters',
-        error: error.message,
-      });
+      
+      res.json(result);
+    } catch (err) {
+      console.error('❌ Error in outgoing getAll:', err);
+      next(err);
     }
   }
 
-  static async getOutgoingById(req: Request, res: Response) {
+  static async getOutgoingById(req: AuthenticatedRequest, res: Response) {
     try {
       const { id } = req.params;
-
       const outgoing = await OutgoingService.getOutgoingById(id);
 
-      res.status(200).json({
+      if (!outgoing) {
+        return res.status(404).json({
+          success: false,
+          error: 'Outgoing letter not found',
+        });
+      }
+
+      res.json({
         success: true,
-        message: 'Outgoing letter fetched successfully',
         data: outgoing,
       });
     } catch (error: any) {
-      res.status(404).json({
+      console.error('Error fetching outgoing by ID:', error);
+      res.status(500).json({
         success: false,
-        message: 'Outgoing letter not found',
-        error: error.message,
-      });
-    }
-  }
-
-  static async getOutgoingByQR(req: Request, res: Response) {
-    try {
-      const { qrCode } = req.params;
-
-      const outgoing = await OutgoingService.getOutgoingByQR(qrCode);
-
-      res.status(200).json({
-        success: true,
-        message: 'Outgoing letter fetched successfully',
-        data: outgoing,
-      });
-    } catch (error: any) {
-      res.status(404).json({
-        success: false,
-        message: 'Outgoing letter not found',
         error: error.message,
       });
     }
@@ -145,45 +123,17 @@ export class OutgoingController {
     try {
       const { id } = req.params;
       const { from, to, priority, subject } = req.body;
-      let image = req.file;
+      let imageUrl: string | undefined;
 
       // If file is uploaded, upload to Cloudinary and delete local file
-      if (image) {
-        const originalPath = image.path; // Store original path before modifying
-        console.log('📁 Processing file update:', {
-          originalPath,
-          fileSize: image.size,
-          mimetype: image.mimetype
+      if (req.file) {
+        // Upload to Cloudinary
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'outgoing_letters',
         });
-
-        try {
-          console.log('☁️ Uploading to Cloudinary...');
-          const result = await cloudinary.uploader.upload(image.path, {
-            folder: 'outgoing_letters',
-          });
-          console.log('✅ Cloudinary upload successful:', result.secure_url);
-          
-          // Replace the file object with Cloudinary URL
-          image = { ...image, path: result.secure_url } as any;
-          
-          // Delete local file using original path
-          console.log('🗑️ Deleting local file:', originalPath);
-          if (fs.existsSync(originalPath)) {
-            fs.unlinkSync(originalPath);
-            console.log('✅ Local file deleted successfully');
-          } else {
-            console.log('⚠️ Local file not found for deletion');
-          }
-        } catch (uploadError) {
-          console.error('❌ Cloudinary upload failed:', uploadError);
-          // If Cloudinary upload fails, delete local file and return error
-          if (fs.existsSync(originalPath)) {
-            console.log('🗑️ Deleting local file after failed upload:', originalPath);
-            fs.unlinkSync(originalPath);
-            console.log('✅ Local file deleted after failed upload');
-          }
-          throw new Error(`Failed to upload image to Cloudinary: ${uploadError}`);
-        }
+        imageUrl = result.secure_url;
+        // Delete local file
+        fs.unlinkSync(req.file.path);
       }
 
       const updateData: any = {
@@ -193,148 +143,178 @@ export class OutgoingController {
         subject,
       };
 
-      if (image) {
-        updateData.image = image;
+      if (imageUrl) {
+        updateData.image = imageUrl;
       }
 
-      const outgoing = await OutgoingService.updateOutgoing(id, updateData);
+      const updated = await OutgoingService.updateOutgoing(id, updateData);
 
-      res.status(200).json({
+      res.json({
         success: true,
-        message: 'Outgoing letter updated successfully',
-        data: outgoing,
+        data: updated,
       });
     } catch (error: any) {
-      console.error('❌ Error in updateOutgoing:', error);
+      console.error('Error updating outgoing:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to update outgoing letter',
         error: error.message,
       });
     }
   }
 
-  static async updateOutgoingStatus(req: Request, res: Response) {
+  static async deleteOutgoing(req: AuthenticatedRequest, res: Response) {
     try {
       const { id } = req.params;
-      const { status, dispatchedDate, deliveredDate } = req.body;
-
-      if (!status) {
-        return res.status(400).json({
-          success: false,
-          message: 'Status is required',
-        });
-      }
-
-      const validStatuses = ['PENDING_DISPATCH', 'DISPATCHED', 'DELIVERED', 'RETURNED'];
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid status. Must be one of: PENDING_DISPATCH, DISPATCHED, DELIVERED, RETURNED',
-        });
-      }
-
-      const outgoing = await OutgoingService.updateOutgoingStatus(id, {
-        status: status as any,
-        dispatchedDate: dispatchedDate ? new Date(dispatchedDate) : undefined,
-        deliveredDate: deliveredDate ? new Date(deliveredDate) : undefined,
-      });
-
-      res.status(200).json({
-        success: true,
-        message: 'Outgoing letter status updated successfully',
-        data: outgoing,
-      });
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to update outgoing letter status',
-        error: error.message,
-      });
-    }
-  }
-
-  static async deleteOutgoing(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-
       await OutgoingService.deleteOutgoing(id);
 
-      res.status(200).json({
+      res.json({
         success: true,
         message: 'Outgoing letter deleted successfully',
       });
     } catch (error: any) {
+      console.error('Error deleting outgoing:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to delete outgoing letter',
         error: error.message,
       });
     }
   }
 
-  static async getOutgoingByDepartment(req: Request, res: Response) {
+  static async updateStatus(req: AuthenticatedRequest, res: Response) {
     try {
-      const { departmentId } = req.params;
+      const { id } = req.params;
+      const { status } = req.body;
 
-      const outgoing = await OutgoingService.getOutgoingByDepartment(departmentId);
+      const updated = await OutgoingService.updateOutgoingStatus(id, { status });
 
-      res.status(200).json({
+      res.json({
         success: true,
-        message: 'Outgoing letters fetched successfully',
-        data: outgoing,
+        data: updated,
       });
     } catch (error: any) {
+      console.error('Error updating outgoing status:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch outgoing letters',
         error: error.message,
       });
     }
   }
 
-  static async getOutgoingStats(req: Request, res: Response) {
+  static async updateOutgoingStatus(req: AuthenticatedRequest, res: Response) {
     try {
-      const stats = await OutgoingService.getOutgoingStats();
-
-      res.status(200).json({
-        success: true,
-        message: 'Outgoing statistics fetched successfully',
-        data: stats,
-      });
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch outgoing statistics',
-        error: error.message,
-      });
-    }
-  }
-
-  static async scanOutgoingQR(req: Request, res: Response) {
-    try {
-      const { qrCode } = req.body;
-
-      if (!qrCode) {
+      const { id } = req.params;
+      const validationResult = validateOutgoingStatusUpdate(req.body);
+      
+      if (!validationResult.success) {
         return res.status(400).json({
           success: false,
-          message: 'QR code is required',
+          error: validationResult.error,
         });
       }
 
-      const outgoing = await OutgoingService.getOutgoingByQR(qrCode);
+      const updated = await OutgoingService.updateOutgoingStatus(id, {
+        ...validationResult.data!,
+        dispatchedDate: validationResult.data!.dispatchedDate ? new Date(validationResult.data!.dispatchedDate) : undefined,
+        deliveredDate: validationResult.data!.deliveredDate ? new Date(validationResult.data!.deliveredDate) : undefined
+      });
 
-      res.status(200).json({
+      res.json({
         success: true,
-        message: 'QR code scanned successfully',
-        data: outgoing,
+        data: updated,
       });
     } catch (error: any) {
-      res.status(404).json({
+      console.error('Error updating outgoing status:', error);
+      res.status(500).json({
         success: false,
-        message: 'Outgoing letter not found',
         error: error.message,
       });
+    }
+  }
+
+  static async getOutgoingStats(req: AuthenticatedRequest, res: Response) {
+    try {
+      const stats = await OutgoingService.getOutgoingStats();
+
+      res.json({
+        success: true,
+        data: stats,
+      });
+    } catch (error: any) {
+      console.error('Error fetching outgoing stats:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  static async updateStatusByQRCode(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const { qrCode } = req.params;
+      const parsed = outgoingStatusSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors });
+      }
+      
+      const result = await OutgoingService.updateStatusByQRCode(qrCode, parsed.data.status);
+      
+      if (result.statusChanged) {
+        res.json({ 
+          success: true,
+          message: result.message,
+          updated: result.updated,
+          statusChanged: true
+        });
+      } else {
+        res.json({ 
+          success: true,
+          message: result.message,
+          updated: result.updated,
+          statusChanged: false
+        });
+      }
+    } catch (err: any) {
+      if (err.message === 'Outgoing letter not found with this QR code') {
+        return res.status(404).json({ 
+          success: false,
+          error: 'Outgoing letter not found with this QR code' 
+        });
+      }
+      next(err);
+    }
+  }
+
+  static async getByQRCode(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const { qrCode } = req.params;
+      const record = await OutgoingService.getOutgoingByQRCode(qrCode);
+      if (!record) return res.status(404).json({ error: 'Letter not found with this QR code' });
+      res.json({ record });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getCourierTrackingRecords(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 30;
+      const offset = (page - 1) * limit;
+      
+      // Get user's department information if they are a department user
+      let userWithDepartment: any = req.user;
+      if (req.user && req.user.role === 'other_department') {
+        const userWithDept = await prisma.user.findUnique({
+          where: { id: req.user.id },
+          include: { department: true }
+        });
+        userWithDepartment = userWithDept || req.user;
+      }
+      
+      const result = await OutgoingService.getCourierTrackingRecords(limit, offset, userWithDepartment);
+      res.json(result);
+    } catch (err) {
+      next(err);
     }
   }
 }

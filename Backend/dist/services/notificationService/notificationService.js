@@ -8,8 +8,10 @@ class NotificationService {
         return prisma.notification.create({
             data: {
                 message: data.message,
-                incomingId: data.incomingId,
+                incomingId: data.incomingId || null,
+                outgoingId: data.outgoingId || null,
                 departmentId: data.departmentId || null,
+                userId: data.userId || null,
             },
             include: {
                 incoming: {
@@ -17,7 +19,13 @@ class NotificationService {
                         department: true
                     }
                 },
-                department: true
+                outgoing: {
+                    include: {
+                        department: true
+                    }
+                },
+                department: true,
+                user: true
             }
         });
     }
@@ -29,21 +37,8 @@ class NotificationService {
         if (!user) {
             throw new Error('User not found');
         }
-        let whereClause = {};
-        // Filter notifications based on user role
-        if (user.role === prisma_1.Role.super_admin || user.role === prisma_1.Role.rd_department) {
-            // Super admin and RD department see all notifications
-            whereClause = {};
-        }
-        else if (user.role === prisma_1.Role.other_department && user.department) {
-            // Other departments only see notifications for their department
-            whereClause = {
-                OR: [
-                    { departmentId: user.department.id },
-                    { departmentId: null } // System notifications
-                ]
-            };
-        }
+        // Get notifications specifically for this user
+        const whereClause = { userId: userId };
         const [notifications, total] = await Promise.all([
             prisma.notification.findMany({
                 where: whereClause,
@@ -53,7 +48,13 @@ class NotificationService {
                             department: true
                         }
                     },
-                    department: true
+                    outgoing: {
+                        include: {
+                            department: true
+                        }
+                    },
+                    department: true,
+                    user: true
                 },
                 orderBy: { createdAt: 'desc' },
                 take: limit,
@@ -70,92 +71,41 @@ class NotificationService {
         };
     }
     static async markAsRead(notificationId, userId) {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: { department: true }
-        });
-        if (!user) {
-            throw new Error('User not found');
-        }
-        let whereClause = { id: notificationId };
-        // Ensure user can only mark their own notifications as read
-        if (user.role === prisma_1.Role.other_department && user.department) {
-            whereClause = {
-                id: notificationId,
-                OR: [
-                    { departmentId: user.department.id },
-                    { departmentId: null }
-                ]
-            };
-        }
+        // User can only mark their own notifications as read
         return prisma.notification.update({
-            where: whereClause,
+            where: {
+                id: notificationId,
+                userId: userId
+            },
             data: { isRead: true }
         });
     }
     static async markAllAsRead(userId) {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: { department: true }
-        });
-        if (!user) {
-            throw new Error('User not found');
-        }
-        let whereClause = { isRead: false };
-        if (user.role === prisma_1.Role.other_department && user.department) {
-            whereClause = {
-                isRead: false,
-                OR: [
-                    { departmentId: user.department.id },
-                    { departmentId: null }
-                ]
-            };
-        }
+        // User can only mark their own notifications as read
         return prisma.notification.updateMany({
-            where: whereClause,
+            where: {
+                isRead: false,
+                userId: userId
+            },
             data: { isRead: true }
         });
     }
     static async getUnreadCount(userId) {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: { department: true }
-        });
-        if (!user) {
-            throw new Error('User not found');
-        }
-        let whereClause = { isRead: false };
-        if (user.role === prisma_1.Role.other_department && user.department) {
-            whereClause = {
+        // User only sees their own unread notifications
+        return prisma.notification.count({
+            where: {
                 isRead: false,
-                OR: [
-                    { departmentId: user.department.id },
-                    { departmentId: null }
-                ]
-            };
-        }
-        return prisma.notification.count({ where: whereClause });
+                userId: userId
+            }
+        });
     }
     static async deleteNotification(notificationId, userId) {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: { department: true }
-        });
-        if (!user) {
-            throw new Error('User not found');
-        }
-        let whereClause = { id: notificationId };
-        if (user.role === prisma_1.Role.other_department && user.department) {
-            whereClause = {
-                id: notificationId,
-                OR: [
-                    { departmentId: user.department.id },
-                    { departmentId: null }
-                ]
-            };
-        }
+        // User can only delete their own notifications
         return prisma.notification.delete({
-            where: whereClause
+            where: {
+                id: notificationId,
+                userId: userId
+            }
         });
     }
 }
