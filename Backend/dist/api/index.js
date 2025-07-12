@@ -14,6 +14,8 @@ const incomingRoutes_1 = __importDefault(require("../src/routes/IncomingRoutes/i
 const outgoingRoutes_1 = __importDefault(require("../src/routes/outgoingRoutes/outgoingRoutes"));
 const notificationRoutes_1 = __importDefault(require("../src/routes/notificationRoutes/notificationRoutes"));
 const letterTrackingRoutes_1 = __importDefault(require("../src/routes/letterTrackingRoutes/letterTrackingRoutes"));
+const test_1 = __importDefault(require("./test"));
+const db_test_1 = __importDefault(require("./db-test"));
 const cors_1 = __importDefault(require("cors"));
 const app = (0, express_1.default)();
 // Middleware
@@ -38,6 +40,8 @@ app.use(`${API_PREFIX}/incoming`, incomingRoutes_1.default);
 app.use(`${API_PREFIX}/outgoing`, outgoingRoutes_1.default);
 app.use(`${API_PREFIX}/notifications`, notificationRoutes_1.default);
 app.use(`${API_PREFIX}/tracking`, letterTrackingRoutes_1.default);
+app.use('/test', test_1.default);
+app.use('/db-test', db_test_1.default);
 app.use(errorHandler_1.errorHandler);
 // For Vercel serverless functions
 exports.default = app;

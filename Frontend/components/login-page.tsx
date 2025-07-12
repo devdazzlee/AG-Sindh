@@ -46,13 +46,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
                     <div className="flex items-center justify-center mb-4">
-                        <Image
-                            src="/Logo.svg"
-                            alt="Logo"
+                        <img src="/Logo.svg" alt="Logo" className="w-42 h-32"  />
+                        {/* <Image
+                            
                             width={160}   // e.g. 160px wide
                             height={64}   //  keeps the same aspect (160 × 64)
                             className="object-contain"
-                        />
+                        /> */}
                     </div>
                     <CardTitle>Login to Dashboard</CardTitle>
                     <CardDescription>Enter your credentials to access the system</CardDescription>

@@ -9,6 +9,8 @@ import incomingRoutes from '../src/routes/IncomingRoutes/incomingRoutes';
 import outgoingRoutes from '../src/routes/outgoingRoutes/outgoingRoutes';
 import notificationRoutes from '../src/routes/notificationRoutes/notificationRoutes';
 import letterTrackingRoutes from '../src/routes/letterTrackingRoutes/letterTrackingRoutes';
+import testRoutes from './test';
+import dbTestRoutes from './db-test';
 import cors from 'cors';
 
 const app = express();
@@ -40,6 +42,8 @@ app.use(`${API_PREFIX}/incoming`, incomingRoutes);
 app.use(`${API_PREFIX}/outgoing`, outgoingRoutes);
 app.use(`${API_PREFIX}/notifications`, notificationRoutes);
 app.use(`${API_PREFIX}/tracking`, letterTrackingRoutes);
+app.use('/test', testRoutes);
+app.use('/db-test', dbTestRoutes);
 
 app.use(errorHandler);
 
