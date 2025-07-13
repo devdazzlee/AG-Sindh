@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import Image from "next/image"
 
 interface AppSidebarProps {
   activeTab: string
@@ -89,7 +90,7 @@ export function AppSidebar({ activeTab, setActiveTab, userRole, isCollapsed, onT
   const SidebarButton = ({ tab }: { tab: any }) => {
     const isActive = activeTab === tab.id
     const showNotificationBadge = tab.id === "notification" && unreadNotifications > 0
-    
+
     const button = (
       <Button
         variant={isActive ? "default" : "ghost"}
@@ -103,8 +104,8 @@ export function AppSidebar({ activeTab, setActiveTab, userRole, isCollapsed, onT
         <div className="relative">
           <tab.icon className="h-5 w-5 flex-shrink-0" />
           {showNotificationBadge && (
-            <Badge 
-              variant="destructive" 
+            <Badge
+              variant="destructive"
               className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
             >
               {unreadNotifications > 99 ? '99+' : unreadNotifications}
@@ -149,18 +150,14 @@ export function AppSidebar({ activeTab, setActiveTab, userRole, isCollapsed, onT
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center gap-3">
-          <div className="flex-shrink-0">
-            <FileText className="h-8 w-8 text-blue-600" />
-          </div>
-          {!isCollapsed && (
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-semibold text-gray-800 truncate">Ag Sindh</h2>
-              <Badge variant="secondary" className="text-xs mt-1">
-                {getRoleDisplayName()}
-              </Badge>
-            </div>
-          )}
+        <div className="flex items-center w-full max-h-24"> {/* max-h-24 = 6rem = 96px */}
+          <Image
+            src={'/Logo2.png'}
+            alt="Logo"
+            className="w-full h-auto object-contain"
+            width={300}
+            height={96}
+          />
         </div>
       </div>
 

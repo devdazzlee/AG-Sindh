@@ -45,9 +45,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
-                    <div className="flex items-center justify-center gap-2 mb-4">
-                        <FileText className="h-8 w-8 text-blue-600" />
-                        <span className="text-2xl font-bold text-gray-800">Ag Sindh</span>
+                    <div className="mx-auto">
+                        <Image src={'/Logo1.png'} alt="Logo" width={200} height={40} />
                     </div>
                     <CardTitle>Login to Dashboard</CardTitle>
                     <CardDescription>Enter your credentials to access the system</CardDescription>
