@@ -209,7 +209,7 @@ export function NotificationTab({ userRole }: NotificationTabProps) {
         <source src="/mixkit-bell-notification-933.wav" type="audio/wav" />
       </audio>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-xl md:text-3xl font-bold">Notifications</h1>
           {unreadCount > 0 && (
@@ -218,7 +218,7 @@ export function NotificationTab({ userRole }: NotificationTabProps) {
             </Badge>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-2 md:mt-0">
           <Button
             variant="outline"
             onClick={toggleSound}
