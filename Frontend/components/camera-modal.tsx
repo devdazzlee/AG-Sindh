@@ -22,34 +22,56 @@ export function CameraModal({ isOpen, onClose, onCapture, title = "Capture Image
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { toast } = useToast()
 
-  const startCamera = async () => {
-    try {
-      setError(null)
-
-      // Stop existing stream
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop())
-      }
-
-      // Simple constraints
-      const constraints = {
-        video: {
-          facingMode: facingMode,
-        },
-      }
-
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
-      setStream(mediaStream)
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream
-        videoRef.current.play()
-      }
-    } catch (err: any) {
-      console.log("Camera error:", err)
-      setError("Camera access failed. Please allow camera permission.")
-    }
+// Helper: Get camera deviceId for facingMode
+const getCameraDeviceId = async (facingMode: "user" | "environment") => {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const videoDevices = devices.filter((device) => device.kind === "videoinput");
+  // Some Android devices swap front/back. Try to match by label as fallback.
+  const search = facingMode === "user" ? /front/i : /back|environment/i;
+  let found = videoDevices.find((device) => search.test(device.label));
+  if (!found && videoDevices.length > 1) {
+    // fallback: pick 0 or 1
+    found = videoDevices[facingMode === "user" ? 0 : 1];
   }
+  return found?.deviceId;
+};
+
+const startCamera = async () => {
+  try {
+    setError(null);
+
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+
+    let constraints: MediaStreamConstraints = {
+      video: { facingMode: { ideal: facingMode } }
+    };
+
+    // Try to use deviceId for better compatibility
+    const deviceId = await getCameraDeviceId(facingMode);
+    if (deviceId) {
+      constraints = { video: { deviceId: { exact: deviceId } } };
+    }
+
+    const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+    setStream(mediaStream);
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = mediaStream;
+      videoRef.current.play();
+    }
+  } catch (err: any) {
+    console.log("Camera error:", err);
+    setError("Camera access failed. Please allow camera permission.");
+  }
+};
+
+const switchCamera = async () => {
+  setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
+  stopCamera();
+  setTimeout(startCamera, 200); // wait a bit for stream to stop
+};
 
   const stopCamera = () => {
     if (stream) {
@@ -58,11 +80,7 @@ export function CameraModal({ isOpen, onClose, onCapture, title = "Capture Image
     }
   }
 
-  const switchCamera = () => {
-    setFacingMode((prev) => (prev === "user" ? "environment" : "user"))
-    stopCamera()
-    setTimeout(startCamera, 100)
-  }
+ 
 
   const captureImage = () => {
     if (!videoRef.current || !canvasRef.current) return
