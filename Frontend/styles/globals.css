@@ -144,6 +144,6 @@ body {
     margin-top: 0.5rem;
   }
   .responsive-table td:last-child .flex {
-    justify-content: flex-end; /* Align action buttons to the right */
+   
   }
 }

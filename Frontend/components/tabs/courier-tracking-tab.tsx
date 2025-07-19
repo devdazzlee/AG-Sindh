@@ -562,7 +562,7 @@ export function CourierTrackingTab({ userRole }: CourierTrackingTabProps) {
                           <span className="text-gray-400 text-sm">-</span>
                         )}
                       </TableCell>
-                      <TableCell data-label="Delivered Date">
+                      {/* <TableCell data-label="Delivered Date">
                         {record.deliveredDate ? (
                           <div className="text-sm">
                             <div className="font-medium">
@@ -579,7 +579,7 @@ export function CourierTrackingTab({ userRole }: CourierTrackingTabProps) {
                         ) : (
                           <span className="text-gray-400 text-sm">-</span>
                         )}
-                      </TableCell>
+                      </TableCell> */}
                     </TableRow>
                   ))
                 )}
