@@ -525,12 +525,13 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* MODIFIED: Added flex-col sm:flex-row */}
               <Button
                 onClick={() => setIsQRScannerOpen(true)}
                 className="flex items-center gap-2"
               >
-                <QrCode className="h-4 w-4" />
+                <QrCode className="h-4 w-4 mr-2" />
                 Scan QR Code
               </Button>
               <Button
@@ -547,7 +548,6 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
                 {isScanning ? "Scanning..." : "Use Scanner"}
               </Button>
             </div>
-
             {scannedQR && (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center gap-2 mb-3">
@@ -565,36 +565,51 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
                 {scannedLetter && (
                   <div className="mt-3 p-3 bg-white rounded border border-green-100">
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+                        {/* MODIFIED */}
+                        <span className="text-sm font-medium text-gray-700 text-left">
+                          {/* MODIFIED */}
                           Subject:
                         </span>
-                        <span className="text-sm text-gray-900">
+                        <span className="text-sm text-gray-900 text-right">
+                          {/* MODIFIED */}
                           {scannedLetter.subject || "No subject"}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+                        {/* MODIFIED */}
+                        <span className="text-sm font-medium text-gray-700 text-left">
+                          {/* MODIFIED */}
                           From:
                         </span>
-                        <span className="text-sm text-gray-900">
+                        <span className="text-sm text-gray-900 text-right">
+                          {/* MODIFIED */}
                           {scannedLetter.from}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+                        {/* MODIFIED */}
+                        <span className="text-sm font-medium text-gray-700 text-left">
+                          {/* MODIFIED */}
                           To:
                         </span>
-                        <span className="text-sm text-gray-900">
+                        <span className="text-sm text-gray-900 text-right">
+                          {/* MODIFIED */}
                           {scannedLetter.department?.name ||
                             "Unknown Department"}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+                        {/* MODIFIED */}
+                        <span className="text-sm font-medium text-gray-700 text-left">
+                          {/* MODIFIED */}
                           Current Status:
                         </span>
-                        <Badge variant={getStatusColor(scannedLetter.status)}>
+                        <Badge
+                          variant={getStatusColor(scannedLetter.status)}
+                          className="text-right"
+                        >
+                          {/* MODIFIED */}
                           {scannedLetter.status}
                         </Badge>
                       </div>
@@ -603,7 +618,6 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
                 )}
               </div>
             )}
-
             <div className="p-8 border-2 border-dashed border-gray-300 rounded-lg text-center bg-gradient-to-br from-gray-50 to-gray-100">
               <div className="max-w-sm mx-auto">
                 <div className="bg-white rounded-full p-4 w-20 h-20 mx-auto mb-6 flex items-center justify-center shadow-sm">
@@ -622,7 +636,6 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
                 </div>
               </div>
             </div>
-
             {scannedLetter?.status === "COLLECTED" ? (
               <div className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg text-center">
                 <div className="bg-white rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center shadow-sm">
@@ -706,7 +719,6 @@ export function IncomingTab({ userRole }: IncomingTabProps) {
             )}
           </CardContent>
         </Card>
-
         <QRScannerModal
           isOpen={isQRScannerOpen}
           onClose={() => setIsQRScannerOpen(false)}
