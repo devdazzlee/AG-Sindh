@@ -1,82 +1,105 @@
-"use client"
+// components/QRScannerModal.tsx
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { X, RotateCcw, Check, AlertCircle, QrCode } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import QrReader from "react-qr-barcode-scanner"
+import React, { useState, useEffect, useCallback } from "react";
+import QrReader from "react-qr-barcode-scanner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { X, RotateCcw, Check, AlertCircle, QrCode } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface QRScannerModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onScan: (qrCode: string) => void
-  title?: string
+  isOpen: boolean;
+  onClose: () => void;
+  onScan: (qrCode: string) => void;
+  title?: string;
 }
 
-export function QRScannerModal({ isOpen, onClose, onScan, title = "Scan QR Code" }: QRScannerModalProps) {
-  const [scannedCode, setScannedCode] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [isScanning, setIsScanning] = useState(false)
-  const [scanCount, setScanCount] = useState(0)
-  const { toast } = useToast()
+export function QRScannerModal({
+  isOpen,
+  onClose,
+  onScan,
+  title = "Scan QR Code",
+}: QRScannerModalProps) {
+  const [deviceId, setDeviceId] = useState<string>();
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanCount, setScanCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const handleScan = useCallback((err: any, result: any) => {
-    // Increment scan count for debugging
-    setScanCount(prev => prev + 1)
-    
-    if (err) {
-      // Only log actual errors, not "no QR code found" messages
-      if (err.name && err.name !== "NotFoundException") {
-        console.error("QR Scan error:", err)
-        setError("Camera access failed. Please check permissions.")
-      }
-      return
-    }
+  // 1) When opened, enumerate video inputs and pick a back camera if available
+  useEffect(() => {
+    if (!isOpen) return;
 
-    if (result && result.text && result.text.trim()) {
-      console.log("QR Code successfully scanned:", result.text)
-      setScannedCode(result.text.trim())
-      setError(null)
-      setIsScanning(false)
-      
-      // Show success toast
-      toast({
-        title: "QR Code Detected!",
-        description: `Scanned: ${result.text.trim()}`,
+    setError(null);
+    setScanCount(0);
+    navigator.mediaDevices
+      .enumerateDevices()
+      .then((devices) => {
+        const videoInputs = devices.filter((d) => d.kind === "videoinput");
+        // look for labels containing "back"/"rear"/"environment"
+        const back = videoInputs.find((d) =>
+          /back|rear|environment/i.test(d.label)
+        );
+        setDeviceId(back?.deviceId || videoInputs[0]?.deviceId);
+        setIsScanning(true);
       })
-    }
-  }, [toast])
+      .catch((e) => {
+        console.error("Camera enumeration failed", e);
+        setError("Could not access any camera devices.");
+      });
+  }, [isOpen]);
 
-  const handleConfirm = () => {
-    if (scannedCode) {
-      onScan(scannedCode)
-      handleClose()
-    }
-  }
+  // 2) Handle scan updates & errors
+  const handleScan = useCallback(
+    (err: any, result: any) => {
+      setScanCount((c) => c + 1);
 
-  const handleClose = () => {
-    setScannedCode(null)
-    setError(null)
-    setIsScanning(false)
-    setScanCount(0)
-    onClose()
-  }
+      if (err) {
+        // non‑critical QR‑not‑found glitches
+        if (err.name === "NotFoundException") return;
+
+        console.error("QR Scan error:", err);
+        setError("Camera access failed. Please check permissions.");
+        toast({
+          title: "Camera error",
+          description:
+            err.name === "NotAllowedError"
+              ? "Permission denied."
+              : err.message || "Failed to access camera.",
+          variant: "destructive",
+        });
+        setIsScanning(false);
+        return;
+      }
+
+      if (result?.text?.trim()) {
+        const code = result.text.trim();
+        onScan(code);
+        setIsScanning(false);
+      }
+    },
+    [onScan, toast]
+  );
 
   const handleRetry = () => {
-    setScannedCode(null)
-    setError(null)
-    setIsScanning(true)
-    setScanCount(0)
-  }
+    setError(null);
+    setScanCount(0);
+    setIsScanning(true);
+  };
 
-  useEffect(() => {
-    if (isOpen) {
-      setIsScanning(true)
-      setError(null)
-      setScanCount(0)
-    }
-  }, [isOpen])
+  const handleClose = () => {
+    setIsScanning(false);
+    setError(null);
+    setScanCount(0);
+    onClose();
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -87,83 +110,66 @@ export function QRScannerModal({ isOpen, onClose, onScan, title = "Scan QR Code"
             {title}
           </DialogTitle>
           <DialogDescription>
-            {scannedCode 
-              ? "QR Code detected! Review and confirm." 
-              : "Point your camera at a QR code to scan"
-            }
+            {error
+              ? "Error accessing camera"
+              : isScanning
+              ? "Point your camera at a QR code"
+              : "Scan complete or cancelled."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
             {error ? (
-              <div className="absolute inset-0 flex items-center justify-center text-white p-4">
-                <div className="text-center">
-                  <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
-                  <p>{error}</p>
-                  <Button onClick={handleRetry} className="mt-4 bg-transparent" variant="outline">
-                    Try Again
-                  </Button>
-                </div>
-              </div>
-            ) : scannedCode ? (
-              <div className="absolute inset-0 flex items-center justify-center text-white p-4">
-                <div className="text-center">
-                  <QrCode className="h-12 w-12 mx-auto mb-4 text-green-400" />
-                  <p className="text-lg font-semibold mb-2">QR Code Detected!</p>
-                  <p className="text-sm text-gray-300 break-all font-mono">{scannedCode}</p>
-                </div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-4">
+                <AlertCircle className="h-12 w-12 mb-4 text-red-400" />
+                <p>{error}</p>
+                <Button
+                  variant="outline"
+                  onClick={handleRetry}
+                  className="mt-4"
+                >
+                  Try Again
+                </Button>
               </div>
             ) : (
-              <div className="relative w-full h-full">
-                {isScanning && (
-                  <QrReader
-                    onUpdate={handleScan}
-                    width="100%"
-                    height="100%"
-                    delay={50}
-                    facingMode="environment"
-                  />
-                )}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center text-white">
-                    <QrCode className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-                    <p className="text-lg">Point camera at QR code</p>
-                    <p className="text-sm text-gray-400 mt-2">Make sure the QR code is clearly visible</p>
-                    <p className="text-xs text-gray-500 mt-1">Scan attempts: {scanCount}</p>
-                  </div>
-                </div>
+              isScanning && (
+                <QrReader
+                  onUpdate={handleScan}
+                  delay={200}
+                  videoConstraints={
+                    deviceId ? { deviceId: { exact: deviceId } } : undefined
+                  }
+                  stopStream={!isScanning}
+                />
+              )
+            )}
+            {/* overlay info */}
+            {!error && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-white">
+                <QrCode className="h-16 w-16 mb-4 text-gray-400" />
+                <p className="text-lg">Point camera at QR code</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Attempts: {scanCount}
+                </p>
               </div>
             )}
           </div>
 
           <div className="flex justify-center gap-4">
-            {scannedCode ? (
-              <>
-                <Button variant="outline" onClick={handleRetry}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Scan Again
-                </Button>
-                <Button onClick={handleConfirm}>
-                  <Check className="h-4 w-4 mr-2" />
-                  Use QR Code
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={handleClose}>
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-                <div className="text-sm text-gray-500 flex items-center">
-                  <QrCode className="h-4 w-4 mr-2" />
-                  Scanning for QR codes... ({scanCount} attempts)
-                </div>
-              </>
+            <Button variant="outline" onClick={handleClose}>
+              <X className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
+            {!error && (
+              <div className="flex items-center text-sm text-gray-500">
+                <QrCode className="h-4 w-4 mr-2" />
+                {isScanning ? `Scanning… (${scanCount})` : "Idle"}
+              </div>
             )}
           </div>
         </div>
       </DialogContent>
     </Dialog>
-  )
-} 
+  );
+}
