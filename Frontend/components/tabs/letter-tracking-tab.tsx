@@ -559,7 +559,7 @@ export function LetterTrackingTab({ userRole }: LetterTrackingTabProps) {
                           {formatDate(item.assignedDate)}
                         </TableCell>
                         <TableCell data-label="Actions">
-                          <div className="flex gap-1 items-center">
+                          <div className="flex md:flex-row flex-col-reverse gap-1 md:items-center items-end">
                             <Button
                               size="sm"
                               variant="outline"
@@ -570,12 +570,13 @@ export function LetterTrackingTab({ userRole }: LetterTrackingTabProps) {
                               <Eye className="h-4 w-4" />
                             </Button>
                             <Select
+                            
                               onValueChange={(value) =>
                                 handleStatusUpdate(item, value)
                               }
                               disabled={isUpdating === item.id}
                             >
-                              <SelectTrigger className="w-[130px]">
+                              <SelectTrigger className="md:w-[130px] w-[100px]">
                                 <SelectValue
                                   placeholder={
                                     isUpdating === item.id

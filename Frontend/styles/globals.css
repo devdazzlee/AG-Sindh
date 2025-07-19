@@ -104,7 +104,7 @@ body {
   .responsive-table tr {
     display: block;
     margin-bottom: 1rem; /* Space between cards */
-    border: 2px solid #e5e5e5; 
+    /* border: 2px solid #e5e5e5;  */
     border-radius: 0.5rem; /* rounded-lg */
     padding: 1rem; /* p-4 */
     box-shadow: var(--shadow); /* Use shadcn shadow variable */
