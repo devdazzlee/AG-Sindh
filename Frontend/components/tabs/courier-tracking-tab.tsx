@@ -206,7 +206,7 @@ export function CourierTrackingTab({ userRole }: CourierTrackingTabProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Courier Tracking</h1>
+        <h1 className="text-xl md:text-3xl font-bold">Courier Tracking</h1>
         <Button
           size="sm"
           variant="outline"

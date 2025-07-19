@@ -1,17 +1,45 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Eye, Edit, Trash2, Loader2, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RecordDetailsModal } from "@/components/record-details-modal"
-import { EditRecordModal } from "@/components/edit-record-modal"
-import { useToast } from "@/hooks/use-toast"
-import apiClient from "@/lib/api-client"
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Search,
+  Eye,
+  Edit,
+  Trash2,
+  Loader2,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { RecordDetailsModal } from "@/components/record-details-modal";
+import { EditRecordModal } from "@/components/edit-record-modal";
+import { useToast } from "@/hooks/use-toast";
+import apiClient from "@/lib/api-client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,98 +49,109 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 
 interface IncomingHistoryTabProps {
-  userRole: "super_admin" | "rd_department" | "other_department"
+  userRole: "super_admin" | "rd_department" | "other_department";
 }
 
 interface IncomingRecord {
-  id: string
-  from: string
-  to: string
-  priority: string
-  subject?: string
-  description?: string
-  filing?: string
-  qrCode: string
-  status: "RECEIVED" | "TRANSFERRED" | "COLLECTED" | "ARCHIVED"
-  image?: string
-  createdAt: string
-  receivedDate: string
+  id: string;
+  from: string;
+  to: string;
+  priority: string;
+  subject?: string;
+  description?: string;
+  filing?: string;
+  qrCode: string;
+  status: "RECEIVED" | "TRANSFERRED" | "COLLECTED" | "ARCHIVED";
+  image?: string;
+  createdAt: string;
+  receivedDate: string;
   department?: {
-    id: string
-    name: string
-    code: string
-  }
+    id: string;
+    name: string;
+    code: string;
+  };
 }
 
 export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterPriority, setFilterPriority] = useState("all")
-  const [filterStatus, setFilterStatus] = useState("all")
-  const [selectedRecord, setSelectedRecord] = useState<IncomingRecord | null>(null)
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [records, setRecords] = useState<IncomingRecord[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [isDeleting, setIsDeleting] = useState<string | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [recordToDelete, setRecordToDelete] = useState<IncomingRecord | null>(null)
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterPriority, setFilterPriority] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [selectedRecord, setSelectedRecord] = useState<IncomingRecord | null>(
+    null
+  );
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [records, setRecords] = useState<IncomingRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<IncomingRecord | null>(
+    null
+  );
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
     total: 0,
-    hasMore: false
-  })
+    hasMore: false,
+  });
 
-  const { toast } = useToast()
+  const { toast } = useToast();
 
   useEffect(() => {
-    fetchRecords()
-  }, [pagination.currentPage])
+    fetchRecords();
+  }, [pagination.currentPage]);
 
   const fetchRecords = async (page: number = 1) => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const response = await apiClient.get(`/incoming?page=${page}&limit=30`)
-      setRecords(response.data.records || [])
+      const response = await apiClient.get(`/incoming?page=${page}&limit=30`);
+      setRecords(response.data.records || []);
       setPagination({
         currentPage: response.data.currentPage || 1,
         totalPages: response.data.totalPages || 1,
         total: response.data.total || 0,
-        hasMore: response.data.hasMore || false
-      })
+        hasMore: response.data.hasMore || false,
+      });
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.response?.data?.error?.[0]?.message || "Failed to fetch records",
+        description:
+          error.response?.data?.error?.[0]?.message ||
+          "Failed to fetch records",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handlePageChange = (newPage: number) => {
-    setPagination(prev => ({ ...prev, currentPage: newPage }))
-  }
+    setPagination((prev) => ({ ...prev, currentPage: newPage }));
+  };
 
   const filteredHistory = records.filter((item) => {
     const matchesSearch =
       item.qrCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.from.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.subject && item.subject.toLowerCase().includes(searchTerm.toLowerCase()))
-    const matchesPriority = filterPriority === "all" || item.priority.toLowerCase() === filterPriority
-    const matchesStatus = filterStatus === "all" || item.status.toLowerCase() === filterStatus.toLowerCase()
+      (item.subject &&
+        item.subject.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesPriority =
+      filterPriority === "all" ||
+      item.priority.toLowerCase() === filterPriority;
+    const matchesStatus =
+      filterStatus === "all" ||
+      item.status.toLowerCase() === filterStatus.toLowerCase();
 
-    return matchesSearch && matchesPriority && matchesStatus
-  })
+    return matchesSearch && matchesPriority && matchesStatus;
+  });
 
   const handleViewDetails = (record: IncomingRecord) => {
-    setSelectedRecord(record)
-    setIsDetailsModalOpen(true)
-  }
+    setSelectedRecord(record);
+    setIsDetailsModalOpen(true);
+  };
 
   const handleEdit = (record: IncomingRecord) => {
     if (userRole !== "super_admin") {
@@ -120,54 +159,65 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
         title: "Access Denied",
         description: "Only super admins can edit records.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-    setSelectedRecord(record)
-    setIsEditModalOpen(true)
-  }
+    setSelectedRecord(record);
+    setIsEditModalOpen(true);
+  };
 
   const handleSaveEdit = async (updatedRecord: any) => {
     try {
-      const formData = new FormData()
-      
+      const formData = new FormData();
+
       // Add all non-image fields
-      Object.keys(updatedRecord).forEach(key => {
-        if (key !== 'id' && key !== 'image' && updatedRecord[key] !== undefined && updatedRecord[key] !== '') {
-          formData.append(key, updatedRecord[key])
+      Object.keys(updatedRecord).forEach((key) => {
+        if (
+          key !== "id" &&
+          key !== "image" &&
+          updatedRecord[key] !== undefined &&
+          updatedRecord[key] !== ""
+        ) {
+          formData.append(key, updatedRecord[key]);
         }
-      })
+      });
 
       // Handle image separately - only upload if it's a new image (base64)
-      if (updatedRecord.image && typeof updatedRecord.image === 'string' && updatedRecord.image.startsWith('data:')) {
+      if (
+        updatedRecord.image &&
+        typeof updatedRecord.image === "string" &&
+        updatedRecord.image.startsWith("data:")
+      ) {
         // Convert base64 to blob for upload
-        const response = await fetch(updatedRecord.image)
-        const blob = await response.blob()
-        formData.append('image', blob, 'document.jpg')
+        const response = await fetch(updatedRecord.image);
+        const blob = await response.blob();
+        formData.append("image", blob, "document.jpg");
       }
       // If image is a URL (existing image), don't include it in the update
 
       await apiClient.put(`/incoming/${updatedRecord.id}`, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
         },
-      })
+      });
 
       // Refresh the records
-      await fetchRecords(pagination.currentPage)
+      await fetchRecords(pagination.currentPage);
 
       toast({
         title: "Record Updated",
         description: `Record ${updatedRecord.qrCode} has been updated successfully.`,
-      })
+      });
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.response?.data?.error?.[0]?.message || "Failed to update record",
+        description:
+          error.response?.data?.error?.[0]?.message ||
+          "Failed to update record",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const handleDeleteClick = (record: IncomingRecord) => {
     if (userRole !== "super_admin") {
@@ -175,89 +225,93 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
         title: "Access Denied",
         description: "Only super admins can delete records.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-    setRecordToDelete(record)
-    setDeleteDialogOpen(true)
-  }
+    setRecordToDelete(record);
+    setDeleteDialogOpen(true);
+  };
 
   const handleDeleteConfirm = async () => {
-    if (!recordToDelete) return
+    if (!recordToDelete) return;
 
-    setIsDeleting(recordToDelete.id)
+    setIsDeleting(recordToDelete.id);
     try {
-      await apiClient.delete(`/incoming/${recordToDelete.id}`)
-      
+      await apiClient.delete(`/incoming/${recordToDelete.id}`);
+
       // Remove from local state
-      setRecords(records.filter((record) => record.id !== recordToDelete.id))
-      
+      setRecords(records.filter((record) => record.id !== recordToDelete.id));
+
       toast({
         title: "Record Deleted",
         description: `Record has been deleted successfully.`,
         variant: "destructive",
-      })
+      });
     } catch (error: any) {
       if (error.response?.status === 404) {
         toast({
           title: "Record Not Found",
           description: "This record has already been deleted or doesn't exist.",
           variant: "destructive",
-        })
+        });
         // Refresh the records list to sync with server
-        fetchRecords(pagination.currentPage)
+        fetchRecords(pagination.currentPage);
       } else {
         toast({
           title: "Error",
-          description: error.response?.data?.error?.[0]?.message || "Failed to delete record",
+          description:
+            error.response?.data?.error?.[0]?.message ||
+            "Failed to delete record",
           variant: "destructive",
-        })
+        });
       }
     } finally {
-      setIsDeleting(null)
-      setDeleteDialogOpen(false)
-      setRecordToDelete(null)
+      setIsDeleting(null);
+      setDeleteDialogOpen(false);
+      setRecordToDelete(null);
     }
-  }
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
-      case 'high':
-        return 'destructive'
-      case 'medium':
-        return 'default'
-      case 'low':
-        return 'secondary'
+      case "high":
+        return "destructive";
+      case "medium":
+        return "default";
+      case "low":
+        return "secondary";
       default:
-        return 'outline'
+        return "outline";
     }
-  }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'RECEIVED':
-        return 'default'
-      case 'TRANSFERRED':
-        return 'secondary'
-      case 'COLLECTED':
-        return 'outline'
-      case 'ARCHIVED':
-        return 'destructive'
+      case "RECEIVED":
+        return "default";
+      case "TRANSFERRED":
+        return "secondary";
+      case "COLLECTED":
+        return "outline";
+      case "ARCHIVED":
+        return "destructive";
       default:
-        return 'outline'
+        return "outline";
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Incoming History</h1>
+        <h1 className="text-xl md:text-3xl font-bold">Incoming History</h1>
         <Button
           variant="outline"
           onClick={() => fetchRecords(1)}
           disabled={isLoading}
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw
+            className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+          />
           Refresh
         </Button>
       </div>
@@ -265,7 +319,9 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
       <Card>
         <CardHeader>
           <CardTitle>Search & Filter</CardTitle>
-          <CardDescription>Search by QR code, date, or other criteria</CardDescription>
+          <CardDescription>
+            Search by QR code, date, or other criteria
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 mb-4 flex-wrap">
@@ -311,7 +367,8 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
         <CardHeader>
           <CardTitle>Incoming Letters History</CardTitle>
           <CardDescription>
-            Complete list of all incoming letters ({pagination.total} total records, page {pagination.currentPage} of {pagination.totalPages})
+            Complete list of all incoming letters ({pagination.total} total
+            records, page {pagination.currentPage} of {pagination.totalPages})
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -322,8 +379,8 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
+                <Table className="responsive-table">
+                  <TableHeader className="md:table-header-group">
                     <TableRow>
                       <TableHead>QR Code</TableHead>
                       <TableHead>From</TableHead>
@@ -337,35 +394,54 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
                   </TableHeader>
                   <TableBody>
                     {filteredHistory.map((record) => (
-                      <TableRow key={record.id} className="hover:bg-gray-50">
-                        <TableCell className="font-mono font-medium">{record.qrCode}</TableCell>
-                        <TableCell className="max-w-[150px]">
+                      <TableRow
+                        key={record.id}
+                        className="hover:bg-gray-50 md:table-row"
+                      >
+                        <TableCell
+                          className="font-mono font-medium"
+                          data-label="QR Code"
+                        >
+                          {record.qrCode}
+                        </TableCell>
+                        <TableCell className="md:max-w-[150px]" data-label="From">
                           <div className="truncate" title={record.from}>
                             {record.from}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[150px]">
-                          <div className="truncate" title={record.department?.name || 'Unknown'}>
-                            {record.department?.name || 'Unknown'}
+                        <TableCell className="md:max-w-[150px]" data-label="To">
+                          <div
+                            className="truncate"
+                            title={record.department?.name || "Unknown"}
+                          >
+                            {record.department?.name || "Unknown"}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[200px]">
-                          <div className="truncate" title={record.subject || 'No subject'}>
-                            {record.subject || 'No subject'}
+                        <TableCell
+                          className="md:max-w-[200px]"
+                          data-label="Subject"
+                        >
+                          <div
+                            className="truncate"
+                            title={record.subject || "No subject"}
+                          >
+                            {record.subject || "No subject"}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell data-label="Priority">
                           <Badge variant={getPriorityColor(record.priority)}>
                             {record.priority}
                           </Badge>
                         </TableCell>
-                        <TableCell>{new Date(record.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell>
+                        <TableCell data-label="Date">
+                          {new Date(record.createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell data-label="Status">
                           <Badge variant={getStatusColor(record.status)}>
                             {record.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell data-label="Actions">
                           <div className="flex gap-1">
                             <Button
                               size="sm"
@@ -415,38 +491,50 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
               {pagination.totalPages > 1 && (
                 <div className="flex items-center justify-between mt-6">
                   <div className="text-sm text-gray-500">
-                    Showing page {pagination.currentPage} of {pagination.totalPages} ({pagination.total} total records)
+                    Showing page {pagination.currentPage} of{" "}
+                    {pagination.totalPages} ({pagination.total} total records)
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      onClick={() =>
+                        handlePageChange(pagination.currentPage - 1)
+                      }
                       disabled={pagination.currentPage <= 1}
                     >
                       <ChevronLeft className="h-4 w-4" />
                       Previous
                     </Button>
                     <div className="flex items-center gap-1">
-                      {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                        const pageNum = i + 1
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={pagination.currentPage === pageNum ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => handlePageChange(pageNum)}
-                            className="w-8 h-8 p-0"
-                          >
-                            {pageNum}
-                          </Button>
-                        )
-                      })}
+                      {Array.from(
+                        { length: Math.min(5, pagination.totalPages) },
+                        (_, i) => {
+                          const pageNum = i + 1;
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={
+                                pagination.currentPage === pageNum
+                                  ? "default"
+                                  : "outline"
+                              }
+                              size="sm"
+                              onClick={() => handlePageChange(pageNum)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        }
+                      )}
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      onClick={() =>
+                        handlePageChange(pagination.currentPage + 1)
+                      }
                       disabled={pagination.currentPage >= pagination.totalPages}
                     >
                       Next
@@ -463,8 +551,13 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
               <div className="text-gray-400 mb-4">
                 <Search className="h-12 w-12 mx-auto" />
               </div>
-              <h3 className="text-lg font-medium text-gray-600 mb-2">No records found</h3>
-              <p className="text-gray-500">No records match your search criteria. Try adjusting your filters.</p>
+              <h3 className="text-lg font-medium text-gray-600 mb-2">
+                No records found
+              </h3>
+              <p className="text-gray-500">
+                No records match your search criteria. Try adjusting your
+                filters.
+              </p>
             </div>
           )}
         </CardContent>
@@ -493,8 +586,12 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the record{" "}
-              <span className="font-mono font-medium">{recordToDelete?.qrCode}</span> and remove it from our servers.
+              This action cannot be undone. This will permanently delete the
+              record{" "}
+              <span className="font-mono font-medium">
+                {recordToDelete?.qrCode}
+              </span>{" "}
+              and remove it from our servers.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -517,5 +614,5 @@ export function IncomingHistoryTab({ userRole }: IncomingHistoryTabProps) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
+  );
 }

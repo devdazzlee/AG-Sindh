@@ -1,3 +1,4 @@
+"use client"
 import { IncomingTab } from "./tabs/incoming-tab"
 import { OutgoingTab } from "./tabs/outgoing-tab"
 import { IncomingHistoryTab } from "./tabs/incoming-history-tab"
@@ -8,12 +9,10 @@ import { CourierTrackingTab } from "./tabs/courier-tracking-tab"
 import { DepartmentsTab } from "./tabs/departments-tab"
 import { CourierServicesTab } from "./tabs/courier-services-tab"
 import { SettingsTab } from "./tabs/settings-tab"
-
 interface DashboardContentProps {
   activeTab: string
   userRole: "super_admin" | "rd_department" | "other_department"
 }
-
 export function DashboardContent({ activeTab, userRole }: DashboardContentProps) {
   const renderContent = () => {
     switch (activeTab) {
@@ -41,6 +40,5 @@ export function DashboardContent({ activeTab, userRole }: DashboardContentProps)
         return <IncomingTab userRole={userRole} />
     }
   }
-
   return <div className="space-y-6">{renderContent()}</div>
 }

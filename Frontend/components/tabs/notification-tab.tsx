@@ -211,7 +211,7 @@ export function NotificationTab({ userRole }: NotificationTabProps) {
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold">Notifications</h1>
+          <h1 className="text-xl md:text-3xl font-bold">Notifications</h1>
           {unreadCount > 0 && (
             <Badge variant="destructive" className="rounded-full">
               {unreadCount} new

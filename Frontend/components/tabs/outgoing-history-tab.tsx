@@ -1,17 +1,45 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Eye, Edit, Trash2, Loader2, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RecordDetailsModal } from "@/components/record-details-modal"
-import { EditRecordModal } from "@/components/edit-record-modal"
-import { useToast } from "@/hooks/use-toast"
-import apiClient from "@/lib/api-client"
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Search,
+  Eye,
+  Edit,
+  Trash2,
+  Loader2,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { RecordDetailsModal } from "@/components/record-details-modal";
+import { EditRecordModal } from "@/components/edit-record-modal";
+import { useToast } from "@/hooks/use-toast";
+import apiClient from "@/lib/api-client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,29 +49,29 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 
 interface OutgoingHistoryTabProps {
-  userRole: "super_admin" | "rd_department" | "other_department"
+  userRole: "super_admin" | "rd_department" | "other_department";
 }
 
 interface OutgoingRecord {
-  id: string
-  from: string
-  to: string
-  priority: string
-  subject?: string
-  qrCode: string
-  status: "PENDING_DISPATCH" | "DISPATCHED" | "DELIVERED" | "RETURNED"
-  image?: string
-  createdAt: string
-  dispatchedDate?: string
-  deliveredDate?: string
+  id: string;
+  from: string;
+  to: string;
+  priority: string;
+  subject?: string;
+  qrCode: string;
+  status: "PENDING_DISPATCH" | "DISPATCHED" | "DELIVERED" | "RETURNED";
+  image?: string;
+  createdAt: string;
+  dispatchedDate?: string;
+  deliveredDate?: string;
   department?: {
-    id: string
-    name: string
-    code: string
-  }
+    id: string;
+    name: string;
+    code: string;
+  };
   courierService?: {
     id: string;
     serviceName: string;
@@ -52,74 +80,85 @@ interface OutgoingRecord {
 }
 
 export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterPriority, setFilterPriority] = useState("all")
-  const [filterStatus, setFilterStatus] = useState("all")
-  const [selectedRecord, setSelectedRecord] = useState<OutgoingRecord | null>(null)
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [records, setRecords] = useState<OutgoingRecord[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [isDeleting, setIsDeleting] = useState<string | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [recordToDelete, setRecordToDelete] = useState<OutgoingRecord | null>(null)
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterPriority, setFilterPriority] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [selectedRecord, setSelectedRecord] = useState<OutgoingRecord | null>(
+    null
+  );
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [records, setRecords] = useState<OutgoingRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<OutgoingRecord | null>(
+    null
+  );
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
     total: 0,
-    hasMore: false
-  })
+    hasMore: false,
+  });
 
-  const { toast } = useToast()
+  const { toast } = useToast();
 
   useEffect(() => {
-    fetchRecords()
-  }, [pagination.currentPage])
+    fetchRecords();
+  }, [pagination.currentPage]);
 
   const fetchRecords = async (page: number = 1) => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const response = await apiClient.get(`/outgoing?page=${page}&limit=30`)
-      console.log('📊 Outgoing API response:', response.data)
-      
-      setRecords(response.data.records || [])
+      const response = await apiClient.get(`/outgoing?page=${page}&limit=30`);
+      console.log("📊 Outgoing API response:", response.data);
+
+      setRecords(response.data.records || []);
       setPagination({
         currentPage: response.data.currentPage || 1,
         totalPages: response.data.totalPages || 1,
         total: response.data.total || 0,
-        hasMore: response.data.hasMore || false
-      })
+        hasMore: response.data.hasMore || false,
+      });
     } catch (error: any) {
-      console.error('❌ Error fetching outgoing records:', error)
+      console.error("❌ Error fetching outgoing records:", error);
       toast({
         title: "Error",
-        description: error.response?.data?.error?.[0]?.message || "Failed to fetch records",
+        description:
+          error.response?.data?.error?.[0]?.message ||
+          "Failed to fetch records",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handlePageChange = (newPage: number) => {
-    setPagination(prev => ({ ...prev, currentPage: newPage }))
-  }
+    setPagination((prev) => ({ ...prev, currentPage: newPage }));
+  };
 
   const filteredHistory = records.filter((item) => {
     const matchesSearch =
       item.qrCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.to.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.subject && item.subject.toLowerCase().includes(searchTerm.toLowerCase()))
-    const matchesPriority = filterPriority === "all" || item.priority.toLowerCase() === filterPriority
-    const matchesStatus = filterStatus === "all" || item.status.toLowerCase() === filterStatus.toLowerCase()
+      (item.subject &&
+        item.subject.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesPriority =
+      filterPriority === "all" ||
+      item.priority.toLowerCase() === filterPriority;
+    const matchesStatus =
+      filterStatus === "all" ||
+      item.status.toLowerCase() === filterStatus.toLowerCase();
 
-    return matchesSearch && matchesPriority && matchesStatus
-  })
+    return matchesSearch && matchesPriority && matchesStatus;
+  });
 
   const handleViewDetails = (record: OutgoingRecord) => {
-    setSelectedRecord(record)
-    setIsDetailsModalOpen(true)
-  }
+    setSelectedRecord(record);
+    setIsDetailsModalOpen(true);
+  };
 
   const handleEdit = (record: OutgoingRecord) => {
     if (userRole !== "super_admin") {
@@ -127,135 +166,150 @@ export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
         title: "Access Denied",
         description: "Only super admins can edit records.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-    setSelectedRecord(record)
-    setIsEditModalOpen(true)
-  }
+    setSelectedRecord(record);
+    setIsEditModalOpen(true);
+  };
 
   const handleSaveEdit = async (updatedRecord: any) => {
     try {
-      const formData = new FormData()
+      const formData = new FormData();
 
       // Add all non-image fields
-      Object.keys(updatedRecord).forEach(key => {
-        if (key !== 'id' && key !== 'image' && updatedRecord[key] !== undefined && updatedRecord[key] !== '') {
-          formData.append(key, updatedRecord[key])
+      Object.keys(updatedRecord).forEach((key) => {
+        if (
+          key !== "id" &&
+          key !== "image" &&
+          updatedRecord[key] !== undefined &&
+          updatedRecord[key] !== ""
+        ) {
+          formData.append(key, updatedRecord[key]);
         }
-      })
+      });
 
       // Handle image separately - only upload if it's a new image (base64)
-      if (updatedRecord.image && typeof updatedRecord.image === 'string' && updatedRecord.image.startsWith('data:')) {
+      if (
+        updatedRecord.image &&
+        typeof updatedRecord.image === "string" &&
+        updatedRecord.image.startsWith("data:")
+      ) {
         // Convert base64 to blob for upload
-        const response = await fetch(updatedRecord.image)
-        const blob = await response.blob()
-        formData.append('image', blob, 'document.jpg')
+        const response = await fetch(updatedRecord.image);
+        const blob = await response.blob();
+        formData.append("image", blob, "document.jpg");
       }
       // If image is a URL (existing image), don't include it in the update
 
       await apiClient.put(`/outgoing/${updatedRecord.id}`, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
         },
-      })
+      });
 
       // Refresh the records
-      await fetchRecords(pagination.currentPage)
+      await fetchRecords(pagination.currentPage);
 
       toast({
         title: "Record Updated",
         description: `Record ${updatedRecord.qrCode} has been updated successfully.`,
-      })
+      });
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.response?.data?.error?.[0]?.message || "Failed to update record",
+        description:
+          error.response?.data?.error?.[0]?.message ||
+          "Failed to update record",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const handleDeleteClick = (record: OutgoingRecord) => {
     if (userRole !== "super_admin") {
-    toast({
+      toast({
         title: "Access Denied",
         description: "Only super admins can delete records.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-    setRecordToDelete(record)
-    setDeleteDialogOpen(true)
-  }
+    setRecordToDelete(record);
+    setDeleteDialogOpen(true);
+  };
 
   const handleDeleteConfirm = async () => {
-    if (!recordToDelete) return
+    if (!recordToDelete) return;
 
-    setIsDeleting(recordToDelete.id)
+    setIsDeleting(recordToDelete.id);
     try {
-      await apiClient.delete(`/outgoing/${recordToDelete.id}`)
+      await apiClient.delete(`/outgoing/${recordToDelete.id}`);
 
       // Remove from local state
-      setRecords(records.filter((record) => record.id !== recordToDelete.id))
+      setRecords(records.filter((record) => record.id !== recordToDelete.id));
 
-    toast({
-      title: "Record Deleted",
+      toast({
+        title: "Record Deleted",
         description: `Record has been deleted successfully.`,
         variant: "destructive",
-      })
+      });
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.response?.data?.error?.[0]?.message || "Failed to delete record",
-      variant: "destructive",
-    })
+        description:
+          error.response?.data?.error?.[0]?.message ||
+          "Failed to delete record",
+        variant: "destructive",
+      });
     } finally {
-      setIsDeleting(null)
-      setDeleteDialogOpen(false)
-      setRecordToDelete(null)
+      setIsDeleting(null);
+      setDeleteDialogOpen(false);
+      setRecordToDelete(null);
     }
-  }
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
-      case 'high':
-        return 'destructive'
-      case 'medium':
-        return 'default'
-      case 'low':
-        return 'secondary'
+      case "high":
+        return "destructive";
+      case "medium":
+        return "default";
+      case "low":
+        return "secondary";
       default:
-        return 'outline'
+        return "outline";
     }
-  }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PENDING_DISPATCH':
-        return 'default'
-      case 'DISPATCHED':
-        return 'secondary'
-      case 'DELIVERED':
-        return 'outline'
-      case 'RETURNED':
-        return 'destructive'
+      case "PENDING_DISPATCH":
+        return "default";
+      case "DISPATCHED":
+        return "secondary";
+      case "DELIVERED":
+        return "outline";
+      case "RETURNED":
+        return "destructive";
       default:
-        return 'outline'
+        return "outline";
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Outgoing History</h1>
+        <h1 className="text-xl md:text-3xl font-bold">Outgoing History</h1>
         <Button
           onClick={() => fetchRecords(pagination.currentPage)}
           disabled={isLoading}
           variant="outline"
           size="sm"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw
+            className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+          />
           Refresh
         </Button>
       </div>
@@ -263,7 +317,9 @@ export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
       <Card>
         <CardHeader>
           <CardTitle>Search & Filter</CardTitle>
-          <CardDescription>Search by QR code, destination, or other criteria</CardDescription>
+          <CardDescription>
+            Search by QR code, destination, or other criteria
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 mb-4 flex-wrap">
@@ -295,7 +351,9 @@ export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending_dispatch">Pending Dispatch</SelectItem>
+                <SelectItem value="pending_dispatch">
+                  Pending Dispatch
+                </SelectItem>
                 <SelectItem value="dispatched">Dispatched</SelectItem>
                 <SelectItem value="delivered">Delivered</SelectItem>
                 <SelectItem value="returned">Returned</SelectItem>
@@ -309,7 +367,8 @@ export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
         <CardHeader>
           <CardTitle>Outgoing Letters History</CardTitle>
           <CardDescription>
-            Complete list of all outgoing letters ({pagination.total} total records)
+            Complete list of all outgoing letters ({pagination.total} total
+            records)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -319,127 +378,154 @@ export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
             </div>
           ) : (
             <>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>QR Code</TableHead>
+              <div className="overflow-x-auto">
+                <Table className="responsive-table">
+                  <TableHeader className="md:table-header-group">
+                    <TableRow>
+                      <TableHead>QR Code</TableHead>
                       <TableHead>From</TableHead>
-                  <TableHead>To</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Courier Service</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredHistory.map((record) => (
-                  <TableRow key={record.id} className="hover:bg-gray-50">
-                        <TableCell className="font-mono font-medium">{record.qrCode}</TableCell>
-                        <TableCell className="max-w-[150px]">
-                          <div className="truncate" title={record.department?.name || 'Unknown Department'}>
-                            {record.department?.name || 'Unknown Department'}
+                      <TableHead>To</TableHead>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Courier Service</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredHistory.map((record) => (
+                      <TableRow
+                        key={record.id}
+                        className="hover:bg-gray-50 md:table-row"
+                      >
+                        <TableCell
+                          className="font-mono font-medium"
+                          data-label="QR Code"
+                        >
+                          {record.qrCode}
+                        </TableCell>
+                        <TableCell className="max-w-[150px]" data-label="From">
+                          <div className="truncate" title={record.from}>
+                            {record.from}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[150px]">
+                        <TableCell className="max-w-[150px]" data-label="To">
                           <div className="truncate" title={record.to}>
                             {record.to}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[200px]">
-                          <div className="truncate" title={record.subject || 'No subject'}>
-                            {record.subject || 'No subject'}
+                        <TableCell
+                          className="max-w-[200px]"
+                          data-label="Subject"
+                        >
+                          <div
+                            className="truncate"
+                            title={record.subject || "No subject"}
+                          >
+                            {record.subject || "No subject"}
                           </div>
-                    </TableCell>
-                    <TableCell>
+                        </TableCell>
+                        <TableCell data-label="Priority">
                           <Badge variant={getPriorityColor(record.priority)}>
-                        {record.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {record.courierService ? (
-                        <div className="truncate" title={record.courierService.serviceName}>
-                          {record.courierService.serviceName}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </TableCell>
-                        <TableCell>{new Date(record.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell>
+                            {record.priority}
+                          </Badge>
+                        </TableCell>
+                        <TableCell data-label="Courier Service">
+                          {record.courierService ? (
+                            <div
+                              className="truncate"
+                              title={record.courierService.serviceName}
+                            >
+                              {record.courierService.serviceName}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell data-label="Date">
+                          {new Date(record.createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell data-label="Status">
                           <Badge variant={getStatusColor(record.status)}>
                             {record.status}
                           </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewDetails(record)}
-                          className="h-8 w-8 p-0"
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        </TableCell>
+                        <TableCell data-label="Actions">
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleViewDetails(record)}
+                              className="h-8 w-8 p-0"
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                             {userRole === "super_admin" && (
                               <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(record)}
-                          className="h-8 w-8 p-0"
-                          title="Edit Record"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEdit(record)}
+                                  className="h-8 w-8 p-0"
+                                  title="Edit Record"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
                                   onClick={() => handleDeleteClick(record)}
-                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                          title="Delete Record"
                                   disabled={isDeleting === record.id}
-                        >
+                                  className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                                  title="Delete Record"
+                                >
                                   {isDeleting === record.id ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                   ) : (
-                          <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-4 w-4" />
                                   )}
-                        </Button>
+                                </Button>
                               </>
                             )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
               {filteredHistory.length === 0 && !isLoading && (
-            <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
-                <Search className="h-12 w-12 mx-auto" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-600 mb-2">No records found</h3>
-              <p className="text-gray-500">No records match your search criteria. Try adjusting your filters.</p>
-            </div>
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-4">
+                    <Search className="h-12 w-12 mx-auto" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-600 mb-2">
+                    No records found
+                  </h3>
+                  <p className="text-gray-500">
+                    No records match your search criteria. Try adjusting your
+                    filters.
+                  </p>
+                </div>
               )}
 
               {/* Pagination */}
               {pagination.totalPages > 1 && (
                 <div className="flex items-center justify-between mt-6">
                   <div className="text-sm text-gray-500">
-                    Showing page {pagination.currentPage} of {pagination.totalPages} ({pagination.total} total records)
+                    Showing page {pagination.currentPage} of{" "}
+                    {pagination.totalPages} ({pagination.total} total records)
                   </div>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      onClick={() =>
+                        handlePageChange(pagination.currentPage - 1)
+                      }
                       disabled={pagination.currentPage <= 1}
                     >
                       <ChevronLeft className="h-4 w-4 mr-1" />
@@ -448,7 +534,9 @@ export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      onClick={() =>
+                        handlePageChange(pagination.currentPage + 1)
+                      }
                       disabled={pagination.currentPage >= pagination.totalPages}
                     >
                       Next
@@ -484,7 +572,8 @@ export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the outgoing record
+              This action cannot be undone. This will permanently delete the
+              outgoing record
               {recordToDelete && ` "${recordToDelete.qrCode}"`}.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -507,5 +596,5 @@ export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
+  );
 }

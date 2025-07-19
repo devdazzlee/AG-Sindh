@@ -92,3 +92,58 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+
+@media (max-width: 767px) {
+  /* Hide table header on small screens */
+  .responsive-table thead {
+    display: none;
+  }
+
+  /* Make table rows behave like blocks/cards */
+  .responsive-table tr {
+    display: block;
+    margin-bottom: 1rem; /* Space between cards */
+    border: 2px solid #e5e5e5; 
+    border-radius: 0.5rem; /* rounded-lg */
+    padding: 1rem; /* p-4 */
+    box-shadow: var(--shadow); /* Use shadcn shadow variable */
+  }
+
+  /* Make table cells behave like blocks */
+  .responsive-table td {
+    display: block;
+    text-align: right; /* Align content to the right */
+    padding-left: 50%; /* Make space for the label */
+    position: relative;
+    padding-top: 0.5rem; /* Add some vertical spacing */
+    padding-bottom: 0.5rem;
+  }
+
+  /* Add labels using data-label attribute */
+  .responsive-table td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 1rem; /* Align label to the left */
+    width: calc(50% - 1rem); /* Adjust width */
+    font-weight: 600; /* font-semibold */
+    text-align: left; /* Ensure label is left-aligned */
+  }
+
+  /* Specific adjustments for the first cell (Department Name) */
+  .responsive-table td:first-child {
+    padding-top: 0; /* Remove top padding for the first cell in a row */
+  }
+
+  /* Specific adjustments for the last cell (Actions) */
+  .responsive-table td:last-child {
+    text-align: left; /* Actions buttons should be left-aligned */
+    padding-left: 1rem; /* Remove extra padding */
+    padding-top: 1rem; /* Add some space above buttons */
+    border-top: 1px solid var(--border); /* Add a separator */
+    margin-top: 0.5rem;
+  }
+  .responsive-table td:last-child .flex {
+    justify-content: flex-end; /* Align action buttons to the right */
+  }
+}

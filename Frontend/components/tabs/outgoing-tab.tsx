@@ -1,43 +1,65 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Camera, Upload, Scan, Loader2, X, FileImage, Send, QrCode, RefreshCw } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { CameraModal } from "@/components/camera-modal"
-import { useToast } from "@/hooks/use-toast"
-import { DatePicker } from "@/components/date-picker"
-import { QRGenerator } from "@/components/qr-generator"
-import { TimePicker } from "@/components/time-picker"
-import apiClient from "@/lib/api-client"
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Camera,
+  Upload,
+  Scan,
+  Loader2,
+  X,
+  FileImage,
+  Send,
+  QrCode,
+  RefreshCw,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { CameraModal } from "@/components/camera-modal";
+import { useToast } from "@/hooks/use-toast";
+import { DatePicker } from "@/components/date-picker";
+import { QRGenerator } from "@/components/qr-generator";
+import { TimePicker } from "@/components/time-picker";
+import apiClient from "@/lib/api-client";
 
 interface OutgoingTabProps {
-  userRole: "super_admin" | "rd_department" | "other_department"
+  userRole: "super_admin" | "rd_department" | "other_department";
 }
 
 interface OutgoingRecord {
-  id: string
-  from: string
-  to: string
-  priority: string
-  subject?: string
-  qrCode: string
-  status: "PENDING_DISPATCH" | "DISPATCHED" | "DELIVERED" | "RETURNED"
-  image?: string
-  createdAt: string
-  dispatchedDate?: string
-  deliveredDate?: string
+  id: string;
+  from: string;
+  to: string;
+  priority: string;
+  subject?: string;
+  qrCode: string;
+  status: "PENDING_DISPATCH" | "DISPATCHED" | "DELIVERED" | "RETURNED";
+  image?: string;
+  createdAt: string;
+  dispatchedDate?: string;
+  deliveredDate?: string;
   department?: {
-    id: string
-    name: string
-    code: string
-  }
+    id: string;
+    name: string;
+    code: string;
+  };
   courierService?: {
     id: string;
     serviceName: string;
@@ -52,7 +74,7 @@ interface CourierService {
 }
 
 const generateUniqueQR = () => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   } else {
     // fallback for environments without crypto.randomUUID
@@ -66,129 +88,129 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
     to: "",
     priority: "",
     subject: "",
-  })
+  });
 
-  const [qrGenerated, setQrGenerated] = useState(false)
-  const [isGeneratingQR, setIsGeneratingQR] = useState(false)
-  const [capturedImage, setCapturedImage] = useState<string | null>(null)
-  const [isCameraOpen, setIsCameraOpen] = useState(false)
-  const [isScanning, setIsScanning] = useState(false)
-  const { toast } = useToast()
-  const [receivedDate, setReceivedDate] = useState<Date>()
-  const [qrData, setQrData] = useState("")
-  const [departments, setDepartments] = useState<any[]>([])
+  const [qrGenerated, setQrGenerated] = useState(false);
+  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const { toast } = useToast();
+  const [receivedDate, setReceivedDate] = useState<Date>();
+  const [qrData, setQrData] = useState("");
+  const [departments, setDepartments] = useState<any[]>([]);
   const [uniqueQR, setUniqueQR] = useState(generateUniqueQR());
-  const [outgoingRecords, setOutgoingRecords] = useState<OutgoingRecord[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [courierServices, setCourierServices] = useState<CourierService[]>([])
-  const [selectedCourier, setSelectedCourier] = useState<string>("")
+  const [outgoingRecords, setOutgoingRecords] = useState<OutgoingRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [courierServices, setCourierServices] = useState<CourierService[]>([]);
+  const [selectedCourier, setSelectedCourier] = useState<string>("");
 
   useEffect(() => {
-    fetchDepartments()
-    fetchOutgoingRecords()
-    fetchCourierServices()
-  }, [])
+    fetchDepartments();
+    fetchOutgoingRecords();
+    fetchCourierServices();
+  }, []);
 
   const fetchDepartments = async () => {
     try {
-      const response = await apiClient.get("/departments")
-      setDepartments(response.data.departments || [])
+      const response = await apiClient.get("/departments");
+      setDepartments(response.data.departments || []);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch departments",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const fetchOutgoingRecords = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const response = await apiClient.get("/outgoing")
-      setOutgoingRecords(response.data.records || [])
+      const response = await apiClient.get("/outgoing");
+      setOutgoingRecords(response.data.records || []);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch outgoing records",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const fetchCourierServices = async () => {
     try {
-      const response = await apiClient.get("/couriers")
-      setCourierServices(response.data.couriers || [])
+      const response = await apiClient.get("/couriers");
+      setCourierServices(response.data.couriers || []);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch courier services",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleCameraCapture = (imageData: string) => {
-    setCapturedImage(imageData)
-  }
+    setCapturedImage(imageData);
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+    const file = event.target.files?.[0];
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
         toast({
           title: "File Too Large",
           description: "Please select a file smaller than 10MB.",
           variant: "destructive",
-        })
-        return
+        });
+        return;
       }
 
-      const reader = new FileReader()
+      const reader = new FileReader();
       reader.onload = (e) => {
-        setCapturedImage(e.target?.result as string)
+        setCapturedImage(e.target?.result as string);
         toast({
           title: "File Uploaded",
           description: "Image uploaded successfully.",
-        })
-      }
+        });
+      };
       reader.onerror = () => {
         toast({
           title: "Upload Failed",
           description: "Failed to upload image. Please try again.",
           variant: "destructive",
-        })
-      }
-      reader.readAsDataURL(file)
+        });
+      };
+      reader.readAsDataURL(file);
     }
-  }
+  };
 
   const handleScanQR = async () => {
-    setIsScanning(true)
+    setIsScanning(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       toast({
         title: "Document Scanned",
         description: "Document scanned successfully.",
-      })
+      });
     } catch (error) {
       toast({
         title: "Scan Failed",
         description: "Failed to scan document. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsScanning(false)
+      setIsScanning(false);
     }
-  }
+  };
 
   const handleSubmit = async () => {
     if (!formData.from || !formData.to || !formData.priority) {
@@ -196,67 +218,72 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
         title: "Missing Information",
         description: "Please fill in all required fields.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
     // If courier is required, check
-    if ((formData.priority === "high" || formData.priority === "medium") && !selectedCourier) {
+    if (
+      (formData.priority === "high" || formData.priority === "medium") &&
+      !selectedCourier
+    ) {
       toast({
         title: "Missing Courier Service",
         description: "Please select a courier service.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
-      const formDataToSend = new FormData()
-      formDataToSend.append('from', formData.from)
-      formDataToSend.append('to', formData.to)
-      formDataToSend.append('priority', formData.priority)
-      formDataToSend.append('subject', formData.subject)
-      formDataToSend.append('qrCode', uniqueQR)
+      const formDataToSend = new FormData();
+      formDataToSend.append("from", formData.from);
+      formDataToSend.append("to", formData.to);
+      formDataToSend.append("priority", formData.priority);
+      formDataToSend.append("subject", formData.subject);
+      formDataToSend.append("qrCode", uniqueQR);
       if (selectedCourier) {
-        formDataToSend.append('courierServiceId', selectedCourier)
+        formDataToSend.append("courierServiceId", selectedCourier);
       }
       if (capturedImage) {
         // Convert base64 to blob for upload
-        const response = await fetch(capturedImage)
-        const blob = await response.blob()
-        formDataToSend.append('image', blob, 'document.jpg')
+        const response = await fetch(capturedImage);
+        const blob = await response.blob();
+        formDataToSend.append("image", blob, "document.jpg");
       }
       const response = await apiClient.post("/outgoing", formDataToSend, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
         },
-      })
+      });
       toast({
         title: "Success",
         description: "Outgoing letter has been saved successfully.",
-      })
+      });
       // Reset form
       setFormData({
         from: "",
         to: "",
         priority: "",
         subject: "",
-      })
-      setCapturedImage(null)
-      setQrGenerated(false)
-      setUniqueQR(generateUniqueQR())
-      setSelectedCourier("")
+      });
+      setCapturedImage(null);
+      setQrGenerated(false);
+      setUniqueQR(generateUniqueQR());
+      setSelectedCourier("");
       // Refresh the records list
-      fetchOutgoingRecords()
+      fetchOutgoingRecords();
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.response?.data?.error?.[0]?.message || "Failed to save outgoing letter",
+        description:
+          error.response?.data?.error?.[0]?.message ||
+          "Failed to save outgoing letter",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleGenerateQRAndSave = async () => {
     if (!formData.from || !formData.to || !formData.priority) {
@@ -264,150 +291,143 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
         title: "Missing Information",
         description: "Please fill in all required fields.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setIsGeneratingQR(true)
+    setIsGeneratingQR(true);
     try {
       // Generate QR code
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(uniqueQR)}`
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+        uniqueQR
+      )}`;
 
       // Create image element to load QR code
-      const img = new Image()
-      img.crossOrigin = "anonymous"
+      const img = new Image();
+      img.crossOrigin = "anonymous";
 
       await new Promise((resolve, reject) => {
-        img.onload = resolve
-        img.onerror = reject
-        img.src = qrUrl
-      })
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = qrUrl;
+      });
 
       // Create canvas and draw QR code
-      const canvas = document.createElement("canvas")
-      canvas.width = 200
-      canvas.height = 200
-      const ctx = canvas.getContext("2d")
+      const canvas = document.createElement("canvas");
+      canvas.width = 200;
+      canvas.height = 200;
+      const ctx = canvas.getContext("2d");
 
       if (ctx) {
-        ctx.fillStyle = "#FFFFFF"
-        ctx.fillRect(0, 0, 200, 200)
-        ctx.drawImage(img, 0, 0, 200, 200)
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, 200, 200);
+        ctx.drawImage(img, 0, 0, 200, 200);
 
-        const qrDataUrl = canvas.toDataURL("image/png")
-        setQrData(qrDataUrl)
+        const qrDataUrl = canvas.toDataURL("image/png");
+        setQrData(qrDataUrl);
 
         // Print QR code automatically
-        const printWindow = window.open('', '_blank')
+        const printWindow = window.open("", "_blank");
         if (printWindow) {
           printWindow.document.write(`
-            <html>
-              <head>
-                <title>QR Code - ${uniqueQR}</title>
-                <style>
-                  body { 
-                    margin: 0; 
-                    padding: 20px; 
-                    font-family: Arial, sans-serif; 
-                    text-align: center;
-                  }
-                  .qr-container {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 10px;
-                  }
-                  .qr-code {
-                    border: 1px solid #ccc;
-                    padding: 10px;
-                  }
-                  .qr-info {
-                    margin-top: 10px;
-                    font-size: 12px;
-                  }
-                  @media print {
-                    body { margin: 0; }
-                    .qr-container { page-break-inside: avoid; }
-                  }
-                </style>
-                <script>
-                  window.onload = function() {
-                    setTimeout(function() {
-                      window.print();
-                      setTimeout(function() {
-                        window.close();
-                      }, 1000);
-                    }, 500);
-                  };
-                </script>
-              </head>
-              <body>
-                <div class="qr-container">
-                  <h3>Outgoing Letter QR Code</h3>
-                  <div class="qr-code">
-                    <img src="${qrDataUrl}" alt="QR Code" style="width: 150px; height: 150px;" />
-                  </div>
-                  <div class="qr-info">
-                    <p><strong>QR Code:</strong> ${uniqueQR}</p>
-                    <p><strong>From:</strong> ${departments.find(d => d.id === formData.from)?.name || formData.from}</p>
-                    <p><strong>To:</strong> ${formData.to}</p>
-                    <p><strong>Priority:</strong> ${formData.priority}</p>
-                    <p><strong>Subject:</strong> ${formData.subject || 'N/A'}</p>
-                    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-                  </div>
-                </div>
-              </body>
-            </html>
-          `)
-          printWindow.document.close()
+                  <html>
+  <head>
+  <meta charset="UTF-8" />
+  <title>QR Sticker</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: white;
+    }
+    .qr-sticker {
+      padding: 10px;
+      border: 1px dashed #aaa;
+      width: 170px;
+      height: 170px;
+      box-sizing: border-box;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .qr-sticker img {
+      width: 150px;
+      height: 150px;
+    }
+    @media print {
+      body { height: auto; }
+      .qr-sticker { page-break-inside: avoid; }
+    }
+  </style>
+  <script>
+    window.onload = function() {
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => window.close(), 500);
+      }, 200);
+    };
+  </script>
+</head>
+<body>
+  <div class="qr-sticker">
+    <img src="${qrDataUrl}" alt="QR Code Sticker" />
+  </div>
+</body>
+</html>
+          `);
+          printWindow.document.close();
         }
 
         toast({
           title: "QR Code Generated",
           description: "QR code has been generated and printed successfully.",
-        })
+        });
 
         // Now save the letter
-        await handleSubmit()
+        await handleSubmit();
       }
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to generate QR code",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsGeneratingQR(false)
+      setIsGeneratingQR(false);
     }
-  }
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
-      case 'high':
-        return 'destructive'
-      case 'medium':
-        return 'default'
-      case 'low':
-        return 'secondary'
+      case "high":
+        return "destructive";
+      case "medium":
+        return "default";
+      case "low":
+        return "secondary";
       default:
-        return 'outline'
+        return "outline";
     }
-  }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PENDING_DISPATCH':
-        return 'default'
-      case 'DISPATCHED':
-        return 'secondary'
-      case 'DELIVERED':
-        return 'outline'
-      case 'RETURNED':
-        return 'destructive'
+      case "PENDING_DISPATCH":
+        return "default";
+      case "DISPATCHED":
+        return "secondary";
+      case "DELIVERED":
+        return "outline";
+      case "RETURNED":
+        return "destructive";
       default:
-        return 'outline'
+        return "outline";
     }
-  }
+  };
 
   // Filter records based on user role
   const getFilteredRecords = () => {
@@ -417,9 +437,12 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
       return outgoingRecords; // RD department sees all records
     } else {
       // Other departments only see records from their department
-      return outgoingRecords.filter(record => record.from === departments.find(d => d.id === record.from)?.id);
+      return outgoingRecords.filter(
+        (record) =>
+          record.from === departments.find((d) => d.id === record.from)?.id
+      );
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -430,14 +453,21 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
               <Send className="h-5 w-5" />
               Add Outgoing Letter
             </CardTitle>
-            <CardDescription>Process letters from other departments to courier or other departments</CardDescription>
+            <CardDescription>
+              Process letters from other departments to courier or other
+              departments
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Image Capture Section */}
             <div className="space-y-4">
               <Label className="text-sm font-medium">Document Image</Label>
               <div className="flex gap-2 flex-wrap">
-                <Button size="sm" onClick={() => setIsCameraOpen(true)} className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => setIsCameraOpen(true)}
+                  className="flex items-center gap-2"
+                >
                   <Camera className="h-4 w-4" />
                   Camera
                 </Button>
@@ -448,14 +478,20 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
                   disabled={isScanning}
                   className="flex items-center gap-2 bg-transparent"
                 >
-                  {isScanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scan className="h-4 w-4" />}
+                  {isScanning ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Scan className="h-4 w-4" />
+                  )}
                   {isScanning ? "Scanning..." : "Scanner"}
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   className="flex items-center gap-2 bg-transparent"
-                  onClick={() => document.getElementById("outgoing-file-upload")?.click()}
+                  onClick={() =>
+                    document.getElementById("outgoing-file-upload")?.click()
+                  }
                 >
                   <Upload className="h-4 w-4" />
                   Upload File
@@ -489,7 +525,9 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
                   <FileImage className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600 mb-2">No image captured</p>
-                  <p className="text-sm text-gray-500">Use camera, scanner, or upload to add document image</p>
+                  <p className="text-sm text-gray-500">
+                    Use camera, scanner, or upload to add document image
+                  </p>
                 </div>
               )}
             </div>
@@ -497,7 +535,10 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="from">From *</Label>
-                <Select value={formData.from} onValueChange={(value) => handleInputChange("from", value)}>
+                <Select
+                  value={formData.from}
+                  onValueChange={(value) => handleInputChange("from", value)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
@@ -523,7 +564,10 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
 
             <div>
               <Label htmlFor="priority">Priority *</Label>
-              <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
+              <Select
+                value={formData.priority}
+                onValueChange={(value) => handleInputChange("priority", value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
@@ -538,14 +582,18 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
             {/* Courier Service Dropdown - conditional */}
             <div>
               <Label htmlFor="courierService">Courier Service *</Label>
-              <Select value={selectedCourier} onValueChange={setSelectedCourier}>
+              <Select
+                value={selectedCourier}
+                onValueChange={setSelectedCourier}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select courier service" />
                 </SelectTrigger>
                 <SelectContent>
                   {courierServices.map((courier) => (
                     <SelectItem key={courier.id} value={courier.id}>
-                      {courier.serviceName} {courier.code ? `(${courier.code})` : ""}
+                      {courier.serviceName}{" "}
+                      {courier.code ? `(${courier.code})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -589,7 +637,9 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Recent Outgoing Records</CardTitle>
-                <CardDescription>List of recently processed outgoing letters</CardDescription>
+                <CardDescription>
+                  List of recently processed outgoing letters
+                </CardDescription>
               </div>
               <Button
                 size="sm"
@@ -597,7 +647,9 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
                 onClick={fetchOutgoingRecords}
                 disabled={isLoading}
               >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                />
               </Button>
             </div>
           </CardHeader>
@@ -613,39 +665,61 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
                     No outgoing records found
                   </div>
                 ) : (
-                  getFilteredRecords().slice(0, 3).map((record) => (
-                    <div key={record.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-sm font-medium">{record.qrCode}</span>
-                        <Badge variant={getPriorityColor(record.priority)}>
-                          {record.priority}
-                        </Badge>
-                      </div>
-                      <p className="font-medium text-gray-900 truncate" title={record.subject || 'No subject'}>
-                        {record.subject || 'No subject'}
-                      </p>
-                      <p className="text-sm text-gray-600 truncate" title={record.department?.name || 'Unknown Department'}>
-                        From: {record.department?.name || 'Unknown Department'}
-                      </p>
-                      <p className="text-sm text-gray-600 truncate" title={record.to}>
-                        To: {record.to}
-                      </p>
-                      {/* Show courier service if present */}
-                      {record.courierService && (
-                        <p className="text-sm text-gray-600 truncate" title={record.courierService.serviceName}>
-                          Courier: {record.courierService.serviceName}
+                  getFilteredRecords()
+                    .slice(0, 3)
+                    .map((record) => (
+                      <div
+                        key={record.id}
+                        className="p-4 border rounded-lg hover:bg-gray-50 transition-colors space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-sm font-medium">
+                            {record.qrCode}
+                          </span>
+                          <Badge variant={getPriorityColor(record.priority)}>
+                            {record.priority}
+                          </Badge>
+                        </div>
+                        <p
+                          className="font-medium text-gray-900 truncate"
+                          title={record.subject || "No subject"}
+                        >
+                          {record.subject || "No subject"}
                         </p>
-                      )}
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-xs text-gray-500">
-                          {new Date(record.createdAt).toLocaleDateString()}
-                        </span>
-                        <Badge variant={getStatusColor(record.status)}>
-                          {record.status}
-                        </Badge>
+                        <p
+                          className="text-sm text-gray-600 truncate"
+                          title={
+                            record.department?.name || "Unknown Department"
+                          }
+                        >
+                          From:{" "}
+                          {record.department?.name || "Unknown Department"}
+                        </p>
+                        <p
+                          className="text-sm text-gray-600 truncate"
+                          title={record.to}
+                        >
+                          To: {record.to}
+                        </p>
+                        {/* Show courier service if present */}
+                        {record.courierService && (
+                          <p
+                            className="text-sm text-gray-600 truncate"
+                            title={record.courierService.serviceName}
+                          >
+                            Courier: {record.courierService.serviceName}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-xs text-gray-500">
+                            {new Date(record.createdAt).toLocaleDateString()}
+                          </span>
+                          <Badge variant={getStatusColor(record.status)}>
+                            {record.status}
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    ))
                 )}
               </div>
             )}
@@ -660,5 +734,5 @@ export function OutgoingTab({ userRole }: OutgoingTabProps) {
         title="Capture Document"
       />
     </div>
-  )
+  );
 }
