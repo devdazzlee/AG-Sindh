@@ -405,18 +405,18 @@ export function OutgoingHistoryTab({ userRole }: OutgoingHistoryTabProps) {
                         >
                           {record.qrCode}
                         </TableCell>
-                        <TableCell className="max-w-[150px]" data-label="From">
+                        <TableCell className="md:max-w-[150px]" data-label="From">
                           <div className="truncate" title={record.from}>
                             {record.from}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[150px]" data-label="To">
+                        <TableCell className="md:max-w-[150px]" data-label="To">
                           <div className="truncate" title={record.to}>
                             {record.to}
                           </div>
                         </TableCell>
                         <TableCell
-                          className="max-w-[200px]"
+                          className="md:max-w-[200px]"
                           data-label="Subject"
                         >
                           <div
