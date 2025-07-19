@@ -94,6 +94,7 @@ body {
 }
 
 
+
 @media (max-width: 767px) {
   /* Hide table header on small screens */
   .responsive-table thead {
@@ -104,46 +105,53 @@ body {
   .responsive-table tr {
     display: block;
     margin-bottom: 1rem; /* Space between cards */
-    /* border: 2px solid #e5e5e5;  */
+    border: 2px solid #6B7280;
     border-radius: 0.5rem; /* rounded-lg */
     padding: 1rem; /* p-4 */
-    box-shadow: var(--shadow); /* Use shadcn shadow variable */
+    box-shadow: var(--shadow);
   }
 
-  /* Make table cells behave like blocks */
+  /* Make table cells behave like flex items */
   .responsive-table td {
-    display: block;
-    text-align: right; /* Align content to the right */
-    padding-left: 50%; /* Make space for the label */
+    display: flex; /* Use flexbox for label and value */
+    justify-content: space-between; /* Push label and value to ends */
+    align-items: center; /* Vertically align items */
+    text-align: right; /* Default alignment for the value */
+    padding: 0.75rem 0; /* Adjust padding for better vertical spacing, remove horizontal */
     position: relative;
-    padding-top: 0.5rem; /* Add some vertical spacing */
-    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border); /* Add a subtle separator between fields */
   }
 
   /* Add labels using data-label attribute */
   .responsive-table td::before {
     content: attr(data-label);
-    position: absolute;
-    left: 1rem; /* Align label to the left */
-    width: calc(50% - 1rem); /* Adjust width */
     font-weight: 600; /* font-semibold */
     text-align: left; /* Ensure label is left-aligned */
+    flex-shrink: 0; /* Prevent label from shrinking */
+    margin-right: 1rem; /* Space between label and value */
+    color: var(--muted-foreground); /* Make label slightly less prominent */
   }
 
-  /* Specific adjustments for the first cell (Department Name) */
-  .responsive-table td:first-child {
-    padding-top: 0; /* Remove top padding for the first cell in a row */
+  /* Remove border for the last cell in a row */
+  .responsive-table tr td:last-child {
+    border-bottom: none;
+  }
+
+  /* Specific adjustments for the first cell in a row */
+  .responsive-table tr td:first-child {
+    padding-top: 0; /* Remove top padding for the very first cell */
   }
 
   /* Specific adjustments for the last cell (Actions) */
-  .responsive-table td:last-child {
-    text-align: left; /* Actions buttons should be left-aligned */
-    padding-left: 1rem; /* Remove extra padding */
+  .responsive-table td[data-label="Actions"] {
+    justify-content: flex-end; /* Align action buttons to the right */
     padding-top: 1rem; /* Add some space above buttons */
     border-top: 1px solid var(--border); /* Add a separator */
     margin-top: 0.5rem;
+    border-bottom: none; /* No bottom border for the last cell */
   }
-  .responsive-table td:last-child .flex {
-   
+  .responsive-table td[data-label="Actions"] .flex {
+    justify-content: flex-end; /* Ensure buttons are right-aligned within their flex container */
+    width: 100%; /* Ensure the flex container takes full width */
   }
 }
