@@ -1,105 +1,110 @@
 // components/QRScannerModal.tsx
-"use client";
+'use client'
 
-import React, { useState, useEffect, useCallback } from "react";
-import QrReader from "react-qr-barcode-scanner";
+import React, { useState, useEffect, useCallback } from 'react'
+import QrReader from 'react-qr-barcode-scanner'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogDescription,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { X, RotateCcw, Check, AlertCircle, QrCode } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { X, AlertCircle, QrCode } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 
 interface QRScannerModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onScan: (qrCode: string) => void;
-  title?: string;
+  isOpen: boolean
+  onClose: () => void
+  onScan: (qrCode: string) => void
+  title?: string
 }
 
 export function QRScannerModal({
   isOpen,
   onClose,
   onScan,
-  title = "Scan QR Code",
+  title = 'Scan QR Code',
 }: QRScannerModalProps) {
-  const [deviceId, setDeviceId] = useState<string>();
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanCount, setScanCount] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
+  const [deviceId, setDeviceId] = useState<string>()
+  const [isScanning, setIsScanning] = useState(false)
+  const [scanCount, setScanCount] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
-  // 1) When opened, enumerate video inputs and pick a back camera if available
+  // enumerate & pick back camera when modal opens
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) return
+    setError(null)
+    setScanCount(0)
 
-    setError(null);
-    setScanCount(0);
     navigator.mediaDevices
       .enumerateDevices()
       .then((devices) => {
-        const videoInputs = devices.filter((d) => d.kind === "videoinput");
-        // look for labels containing "back"/"rear"/"environment"
-        const back = videoInputs.find((d) =>
+        const cams = devices.filter((d) => d.kind === 'videoinput')
+        const back = cams.find((d) =>
           /back|rear|environment/i.test(d.label)
-        );
-        setDeviceId(back?.deviceId || videoInputs[0]?.deviceId);
-        setIsScanning(true);
+        )
+        setDeviceId(back?.deviceId || cams[0]?.deviceId)
+        setIsScanning(true)
       })
       .catch((e) => {
-        console.error("Camera enumeration failed", e);
-        setError("Could not access any camera devices.");
-      });
-  }, [isOpen]);
+        console.error('Could not enumerate devices', e)
+        setError('Could not find any camera.')
+      })
+  }, [isOpen])
 
-  // 2) Handle scan updates & errors
+  // updated handleScan from above
   const handleScan = useCallback(
     (err: any, result: any) => {
-      setScanCount((c) => c + 1);
+      setScanCount((c) => c + 1)
 
       if (err) {
-        // non‑critical QR‑not‑found glitches
-        if (err.name === "NotFoundException") return;
+        console.debug('QRScan error:', err.name, err.message)
+        const isPermissionError =
+          err.name === 'NotAllowedError' ||
+          err.name === 'PermissionDeniedError' ||
+          err.name === 'NotReadableError'
 
-        console.error("QR Scan error:", err);
-        setError("Camera access failed. Please check permissions.");
-        toast({
-          title: "Camera error",
-          description:
-            err.name === "NotAllowedError"
-              ? "Permission denied."
-              : err.message || "Failed to access camera.",
-          variant: "destructive",
-        });
-        setIsScanning(false);
-        return;
+        if (isPermissionError) {
+          setError('Camera access failed. Please check permissions.')
+          toast({
+            title: 'Camera error',
+            description:
+              err.name === 'NotAllowedError'
+                ? 'Permission denied. Please grant camera access in your browser settings.'
+                : err.message,
+            variant: 'destructive',
+          })
+          setIsScanning(false)
+        }
+
+        // ignore all other scanning/decode failures
+        return
       }
 
       if (result?.text?.trim()) {
-        const code = result.text.trim();
-        onScan(code);
-        setIsScanning(false);
+        const code = result.text.trim()
+        onScan(code)
+        setIsScanning(false)
       }
     },
     [onScan, toast]
-  );
+  )
 
   const handleRetry = () => {
-    setError(null);
-    setScanCount(0);
-    setIsScanning(true);
-  };
+    setError(null)
+    setScanCount(0)
+    setIsScanning(true)
+  }
 
   const handleClose = () => {
-    setIsScanning(false);
-    setError(null);
-    setScanCount(0);
-    onClose();
-  };
+    setIsScanning(false)
+    setError(null)
+    setScanCount(0)
+    onClose()
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -111,10 +116,10 @@ export function QRScannerModal({
           </DialogTitle>
           <DialogDescription>
             {error
-              ? "Error accessing camera"
+              ? 'Error accessing camera'
               : isScanning
-              ? "Point your camera at a QR code"
-              : "Scan complete or cancelled."}
+              ? 'Point your camera at a QR code'
+              : 'Scan complete or cancelled.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -124,11 +129,7 @@ export function QRScannerModal({
               <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-4">
                 <AlertCircle className="h-12 w-12 mb-4 text-red-400" />
                 <p>{error}</p>
-                <Button
-                  variant="outline"
-                  onClick={handleRetry}
-                  className="mt-4"
-                >
+                <Button variant="outline" onClick={handleRetry}>
                   Try Again
                 </Button>
               </div>
@@ -138,13 +139,15 @@ export function QRScannerModal({
                   onUpdate={handleScan}
                   delay={200}
                   videoConstraints={
-                    deviceId ? { deviceId: { exact: deviceId } } : undefined
+                    deviceId
+                      ? { deviceId: { exact: deviceId } }
+                      : undefined
                   }
                   stopStream={!isScanning}
                 />
               )
             )}
-            {/* overlay info */}
+
             {!error && (
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-white">
                 <QrCode className="h-16 w-16 mb-4 text-gray-400" />
@@ -161,15 +164,9 @@ export function QRScannerModal({
               <X className="h-4 w-4 mr-2" />
               Cancel
             </Button>
-            {!error && (
-              <div className="flex items-center text-sm text-gray-500">
-                <QrCode className="h-4 w-4 mr-2" />
-                {isScanning ? `Scanning… (${scanCount})` : "Idle"}
-              </div>
-            )}
           </div>
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
